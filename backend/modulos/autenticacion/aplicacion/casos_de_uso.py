@@ -13,8 +13,8 @@ class RegistrarUsuarioUseCase:
     def __init__(self, repositorio):
         self._repositorio = repositorio
 
-    def ejecutar(self, email, password):
-        usuario = Usuario.registrar(email, password)
+    def ejecutar(self, email, password, nombre):
+        usuario = Usuario.registrar(email, password, nombre)
         return self._repositorio.guardar(usuario)  # puede lanzar EmailYaRegistradoError
 
 

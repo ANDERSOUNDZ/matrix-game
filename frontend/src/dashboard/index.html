@@ -4,34 +4,295 @@
   <meta charset="UTF-8">
   <title>Matrix Game — Dashboard</title>
   <style>
+    :root {
+      --retro-green: #35e05a;
+      --retro-green-dark: #0b3d18;
+      --retro-black: #05070a;
+      --retro-gray: #7ca487;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      background: #05070a; color: #35e05a; font-family: 'Courier New', monospace;
-      padding: 2rem; max-width: 420px; margin: 0 auto; text-align: center;
+      margin: 0;
+      min-height: 100vh;
+      background: #000;
+      color: var(--retro-green);
+      font-family: 'Courier New', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    h1 { text-transform: uppercase; letter-spacing: 2px; }
-    button {
-      display: block; width: 100%; margin-top: 1rem; padding: .8rem;
-      font-family: inherit; font-size: 1rem; background: #123018; color: #7dffb0;
-      border: 1px solid #35e05a; cursor: pointer;
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.025) 0,
+        rgba(255, 255, 255, 0.025) 1px,
+        transparent 1px,
+        transparent 4px
+      );
+      z-index: 9999;
     }
-    button:hover { background: #1c4a26; }
-    #btn-jugar { font-size: 1.2rem; padding: 1rem; }
+
+    .retro-dashboard {
+      width: 100%;
+      max-width: 900px;
+      height: 560px;
+      margin: 20px;
+      display: flex;
+      flex-direction: column;
+      background: var(--retro-black);
+      border: 3px double var(--retro-green);
+      box-shadow: 0 0 18px rgba(53, 224, 90, 0.25);
+    }
+
+    .retro-header {
+      padding: 16px 18px;
+      border-bottom: 3px double var(--retro-green);
+    }
+
+    .retro-header h1 {
+      margin: 0 0 4px;
+      font-size: 1.2rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .retro-header p {
+      margin: 0;
+      color: var(--retro-gray);
+    }
+
+    .retro-info {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-bottom: 1px solid var(--retro-green);
+      font-size: .85rem;
+    }
+
+    .retro-info div {
+      padding: 10px 14px;
+      border-right: 1px solid var(--retro-green);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .retro-info div:last-child {
+      border-right: none;
+    }
+
+    .retro-main {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .retro-menu {
+      border-right: 1px solid var(--retro-green);
+      padding: 18px;
+    }
+
+    .retro-menu h2,
+    .retro-log h2 {
+      margin: 0 0 14px;
+      font-size: .9rem;
+      text-transform: uppercase;
+      color: var(--retro-gray);
+    }
+
+    .retro-option {
+      display: block;
+      width: 100%;
+      margin-bottom: 12px;
+      padding: 12px;
+      color: var(--retro-green);
+      background: transparent;
+      border: 1px solid var(--retro-green);
+      font-family: inherit;
+      font-size: 1rem;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .retro-option:last-child {
+      margin-bottom: 0;
+    }
+
+    .retro-option:hover,
+    .retro-option:focus {
+      color: #000;
+      background: var(--retro-green);
+      outline: none;
+    }
+
+    .retro-log {
+      padding: 18px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--retro-green) var(--retro-black);
+    }
+
+    .retro-log::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    .retro-log::-webkit-scrollbar-track {
+      background: var(--retro-black);
+      border-left: 1px solid var(--retro-green-dark);
+    }
+
+    .retro-log::-webkit-scrollbar-thumb {
+      background: var(--retro-green-dark);
+      border: 1px solid var(--retro-green);
+      box-shadow: inset 0 0 4px rgba(53, 224, 90, 0.4);
+    }
+
+    .retro-log::-webkit-scrollbar-thumb:hover {
+      background: var(--retro-green);
+    }
+
+    .retro-log-line {
+      margin: 8px 0;
+      color: var(--retro-gray);
+    }
+
+    .retro-log-line::before {
+      content: "> ";
+      color: var(--retro-green);
+    }
+
+    .retro-footer {
+      padding: 10px 14px;
+      border-top: 3px double var(--retro-green);
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      font-size: .85rem;
+      color: var(--retro-gray);
+    }
+
+    .retro-cursor {
+      display: inline-block;
+      width: 8px;
+      height: 14px;
+      background: var(--retro-green);
+      animation: blink .8s steps(1) infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    @media (max-width: 640px) {
+      .retro-dashboard {
+        height: auto;
+      }
+
+      .retro-info {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .retro-main {
+        grid-template-columns: 1fr;
+      }
+
+      .retro-menu {
+        border-right: none;
+        border-bottom: 1px solid var(--retro-green);
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>Matrix Game</h1>
-  <p id="saludo"></p>
+  <div id="rain-fullscreen" style="position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none;"></div>
 
-  <button id="btn-jugar">Jugar</button>
-  <button id="btn-logout">Cerrar sesión</button>
+  <div id="dashboard-container" class="retro-dashboard">
+    <div class="retro-header">
+      <h1>Matrix Game</h1>
+      <p id="saludo"></p>
+    </div>
+
+    <div class="retro-info">
+      <div id="info-usuario">USER: —</div>
+      <div>STATUS: CONNECTED</div>
+      <div>NODE: MATRIX-01</div>
+      <div>ACCESS: LEVEL 1</div>
+    </div>
+
+    <div class="retro-main">
+      <aside class="retro-menu">
+        <h2>Main Menu</h2>
+
+        <button id="btn-jugar" class="retro-option">
+          [1] Jugar
+        </button>
+
+        <button id="btn-logout" class="retro-option">
+          [2] Cerrar sesión
+        </button>
+      </aside>
+
+      <section class="retro-log">
+        <h2>System Log</h2>
+
+        <p class="retro-log-line">Inicializando interfaz de usuario...</p>
+        <p class="retro-log-line">Verificando sesión...</p>
+        <p class="retro-log-line">Autenticación confirmada.</p>
+        <p class="retro-log-line">
+          Sistema listo.<span class="retro-cursor"></span>
+        </p>
+      </section>
+    </div>
+
+    <div class="retro-footer">
+      <span>Bienvenido a Matrix Game</span>
+    </div>
+  </div>
 
   <script src="../comun.js"></script>
+  <script src="../ui-effects/matrix-rain.js"></script>
   <script>
     const sesion = obtenerSesion();
     if (!sesion) {
       location.href = "../autenticacion/index.html";
     } else {
-      document.getElementById("saludo").textContent = `Hola, ${sesion.usuario.email}`;
+      const nombre = sesion.usuario.nombre || sesion.usuario.email;
+      document.getElementById("saludo").textContent = `Hola, ${nombre}`;
+      document.getElementById("info-usuario").textContent = `USER: ${nombre.toUpperCase()}`;
+      mostrarEfectoDeEntradaSiCorresponde();
+    }
+
+    function mostrarEfectoDeEntradaSiCorresponde() {
+      const parametros = new URLSearchParams(location.search);
+      if (parametros.get("showEffect") !== "true") {
+        return;
+      }
+
+      matrixRain({
+        target: "#rain-fullscreen",
+        effect: "RAIN-TEXT",
+        time: 2500,
+        fontSize: 18,
+        speed: 45,
+        sound: "../sonidos/entrada-retro.wav",
+        soundVolume: 0.5,
+      });
+
+      parametros.delete("showEffect");
+      const query = parametros.toString();
+      const urlLimpia = location.pathname + (query ? `?${query}` : "") + location.hash;
+      history.replaceState({}, document.title, urlLimpia);
     }
 
     document.getElementById("btn-jugar").addEventListener("click", () => {

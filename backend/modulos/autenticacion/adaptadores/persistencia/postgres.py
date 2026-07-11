@@ -15,27 +15,27 @@ class UsuarioRepositoryPostgres:
         with engine.connect() as conexion:
             fila = conexion.execute(
                 text(
-                    "SELECT id, email, password_hash FROM autenticacion.usuarios "
+                    "SELECT id, email, password_hash, nombre FROM autenticacion.usuarios "
                     "WHERE email = :email"
                 ),
                 {"email": email},
             ).fetchone()
         if fila is None:
             return None
-        return Usuario(id=fila.id, email=fila.email, password_hash=fila.password_hash)
+        return Usuario(id=fila.id, email=fila.email, password_hash=fila.password_hash, nombre=fila.nombre)
 
     def obtener_por_id(self, id):
         with engine.connect() as conexion:
             fila = conexion.execute(
                 text(
-                    "SELECT id, email, password_hash FROM autenticacion.usuarios "
+                    "SELECT id, email, password_hash, nombre FROM autenticacion.usuarios "
                     "WHERE id = :id"
                 ),
                 {"id": id},
             ).fetchone()
         if fila is None:
             return None
-        return Usuario(id=fila.id, email=fila.email, password_hash=fila.password_hash)
+        return Usuario(id=fila.id, email=fila.email, password_hash=fila.password_hash, nombre=fila.nombre)
 
     def guardar(self, usuario):
         with engine.begin() as conexion:
@@ -43,10 +43,14 @@ class UsuarioRepositoryPostgres:
                 try:
                     fila = conexion.execute(
                         text(
-                            "INSERT INTO autenticacion.usuarios (email, password_hash) "
-                            "VALUES (:email, :password_hash) RETURNING id"
+                            "INSERT INTO autenticacion.usuarios (email, password_hash, nombre) "
+                            "VALUES (:email, :password_hash, :nombre) RETURNING id"
                         ),
-                        {"email": usuario.email, "password_hash": usuario.password_hash},
+                        {
+                            "email": usuario.email,
+                            "password_hash": usuario.password_hash,
+                            "nombre": usuario.nombre,
+                        },
                     ).fetchone()
                 except IntegrityError as error:
                     raise EmailYaRegistradoError(usuario.email) from error
@@ -55,11 +59,12 @@ class UsuarioRepositoryPostgres:
                 conexion.execute(
                     text(
                         "UPDATE autenticacion.usuarios SET email = :email, "
-                        "password_hash = :password_hash WHERE id = :id"
+                        "password_hash = :password_hash, nombre = :nombre WHERE id = :id"
                     ),
                     {
                         "email": usuario.email,
                         "password_hash": usuario.password_hash,
+                        "nombre": usuario.nombre,
                         "id": usuario.id,
                     },
                 )

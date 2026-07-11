@@ -38,7 +38,7 @@ def test_registrar_usuario_lo_persiste_con_id_asignado():
     repositorio = RepositorioUsuarioFake()
     caso_de_uso = RegistrarUsuarioUseCase(repositorio)
 
-    usuario = caso_de_uso.ejecutar("ana@mail.com", "clave1234")
+    usuario = caso_de_uso.ejecutar("ana@mail.com", "clave1234", "Ana")
 
     assert usuario.id is not None
     assert repositorio.obtener_por_email("ana@mail.com") is usuario
@@ -46,7 +46,7 @@ def test_registrar_usuario_lo_persiste_con_id_asignado():
 
 def test_iniciar_sesion_con_credenciales_correctas_devuelve_token():
     repositorio = RepositorioUsuarioFake()
-    RegistrarUsuarioUseCase(repositorio).ejecutar("ana@mail.com", "clave1234")
+    RegistrarUsuarioUseCase(repositorio).ejecutar("ana@mail.com", "clave1234", "Ana")
     caso_de_uso = IniciarSesionUseCase(
         repositorio, emisor_de_tokens=lambda usuario_id: f"token-{usuario_id}"
     )
@@ -58,7 +58,7 @@ def test_iniciar_sesion_con_credenciales_correctas_devuelve_token():
 
 def test_iniciar_sesion_con_password_incorrecta_lanza_credenciales_invalidas():
     repositorio = RepositorioUsuarioFake()
-    RegistrarUsuarioUseCase(repositorio).ejecutar("ana@mail.com", "clave1234")
+    RegistrarUsuarioUseCase(repositorio).ejecutar("ana@mail.com", "clave1234", "Ana")
     caso_de_uso = IniciarSesionUseCase(repositorio, emisor_de_tokens=lambda usuario_id: "token")
 
     with pytest.raises(CredencialesInvalidasError):
