@@ -1,13 +1,14 @@
 """Casos de uso del módulo laberinto.
 
-`MoverJugadorUseCase` publica el evento `PartidaGanada`
-(`compartido/eventos.py`) en el bus compartido cuando el movimiento
-resulta en victoria -- así el módulo `celebracion` reacciona sin que este
-módulo lo importe (ver GUIA-ARQUITECTURA-Y-CALIDAD.md, Nivel 3).
+`MoverJugadorUseCase` y `MoverEnemigoUseCase` publican los eventos
+`PartidaGanada`/`PartidaPerdida` (`compartido/eventos.py`) en el bus
+compartido cuando corresponde -- así el módulo `celebracion` (u otro futuro
+suscriptor) reacciona sin que este módulo lo importe (ver
+GUIA-ARQUITECTURA-Y-CALIDAD.md, Nivel 3).
 """
 
 from compartido.event_bus import event_bus
-from compartido.eventos import PartidaGanada
+from compartido.eventos import PartidaGanada, PartidaPerdida
 from modulos.laberinto.dominio.partida import Partida
 
 
@@ -32,7 +33,10 @@ class MoverJugadorUseCase:
 
         partida.mover(direccion)
         self._repositorio.guardar(partida)
+        self._publicar_resultado_si_termino(partida, usuario_id)
+        return partida
 
+    def _publicar_resultado_si_termino(self, partida, usuario_id):
         if partida.ganada:
             event_bus.publicar(
                 PartidaGanada(
@@ -40,6 +44,32 @@ class MoverJugadorUseCase:
                     usuario_id=str(usuario_id),
                     tiempo_segundos=partida.tiempo_segundos,
                 )
+            )
+        elif partida.perdida:
+            event_bus.publicar(
+                PartidaPerdida(partida_id=str(partida.id), usuario_id=str(usuario_id))
+            )
+
+
+class MoverEnemigoUseCase:
+    """Un paso de persecución del enemigo -- lo llama el tick de fondo del
+    adaptador de entrada websocket, no el jugador (ver
+    adaptadores/entrada/websocket.py)."""
+
+    def __init__(self, repositorio):
+        self._repositorio = repositorio
+
+    def ejecutar(self, usuario_id):
+        partida = self._repositorio.obtener_por_usuario(usuario_id)
+        if partida is None:
+            return None
+
+        partida.mover_enemigo()
+        self._repositorio.guardar(partida)
+
+        if partida.perdida:
+            event_bus.publicar(
+                PartidaPerdida(partida_id=str(partida.id), usuario_id=str(usuario_id))
             )
 
         return partida

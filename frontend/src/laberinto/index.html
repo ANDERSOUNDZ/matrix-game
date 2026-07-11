@@ -6,21 +6,60 @@
   <style>
     body {
       background: #000; color: #35e05a; font-family: 'Courier New', monospace;
-      padding: 2rem; max-width: 420px; margin: 0 auto; text-align: center;
+      margin: 0; padding: 1.5rem; text-align: center;
     }
-    canvas { background: #000; border: 1px solid #1f4d2c; margin-top: 1rem; }
-    #estado { margin-top: .5rem; min-height: 1.2em; }
+    h1 { margin: 0 0 .25rem; text-transform: uppercase; letter-spacing: 2px; }
     a { color: #7dffb0; }
+    #contenedor-3d {
+      position: relative; width: 100%; max-width: 640px; margin: 1rem auto 0;
+      border: 1px solid #1f4d2c; line-height: 0;
+    }
+    canvas { display: block; width: 100%; height: 480px; }
+    #estado { margin-top: .5rem; min-height: 1.2em; }
+    #brujula {
+      position: absolute; top: .6rem; left: .6rem; padding: .3rem .6rem;
+      background: rgba(0, 0, 0, 0.65); border: 1px solid #1f4d2c;
+      font-size: .85rem; line-height: 1.4; letter-spacing: 1px; pointer-events: none;
+    }
+    #minimapa {
+      position: absolute; top: .6rem; right: .6rem;
+      background: rgba(0, 0, 0, 0.65); border: 1px solid #1f4d2c;
+      width: 130px; height: 130px;
+    }
+    #overlay-fin {
+      position: absolute; inset: 0; background: rgba(0, 0, 0, 0.85);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      gap: .9rem;
+    }
+    #overlay-fin.visible { display: flex; }
+    #overlay-fin h2 { font-size: 2rem; margin: 0; text-transform: uppercase; letter-spacing: 2px; }
+    #overlay-fin button {
+      padding: .6rem 1.4rem; font-family: inherit; font-size: 1rem;
+      background: #123018; color: #7dffb0; border: 1px solid #35e05a; cursor: pointer;
+    }
+    #overlay-fin button:hover { background: #1c4a26; }
   </style>
 </head>
 <body>
   <p><a href="../dashboard/index.html">&larr; volver al dashboard</a></p>
   <h1>Laberinto</h1>
-  <p>Usá las flechas del teclado para llegar a la celda dorada.</p>
+  <p>↑ avanza, ↓ retrocede, ←/→ girar. Un enemigo te persigue — ¡no dejes que te alcance!</p>
   <div id="estado">Conectando...</div>
-  <canvas id="grid" width="350" height="350"></canvas>
+
+  <div id="contenedor-3d">
+    <canvas id="escena"></canvas>
+    <div id="brujula">Mirando: Norte</div>
+    <canvas id="minimapa" width="130" height="130"></canvas>
+    <div id="overlay-fin">
+      <h2 id="titulo-fin"></h2>
+      <p id="detalle-fin"></p>
+      <button id="btn-reintentar">Reintentar</button>
+      <button id="btn-volver">Volver al dashboard</button>
+    </div>
+  </div>
 
   <script src="../comun.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script>
     const sesion = obtenerSesion();
@@ -28,40 +67,293 @@
       location.href = "../autenticacion/index.html";
     }
 
-    const canvas = document.getElementById("grid");
-    const contexto = canvas.getContext("2d");
-    const estadoEl = document.getElementById("estado");
+    // --- Escena 3D (ver docs/decisiones/0003-laberinto-3d-con-enemigo.md) ---
+    const CELDA = 4;
+    const ALTURA_PARED = 3;
+    const GROSOR_PARED = 0.15;
+    const ALTURA_OJOS = 1.6;
+    const DURACION_ANIMACION_MS = 220;
 
-    function dibujar(estado) {
-      const filas = estado.grid.length;
-      const columnas = estado.grid[0].length;
-      const tam = canvas.width / columnas;
+    // Angulo de la camara (rotacion en Y) segun hacia donde se esta mirando.
+    // Ver docs/decisiones/0003-... para la derivacion de estos valores a
+    // partir de la convencion de ejes de Three.js.
+    const ANGULOS = { arriba: 0, abajo: Math.PI, izquierda: Math.PI / 2, derecha: -Math.PI / 2 };
+    const OPUESTA = { arriba: "abajo", abajo: "arriba", izquierda: "derecha", derecha: "izquierda" };
 
-      contexto.clearRect(0, 0, canvas.width, canvas.height);
-      for (let f = 0; f < filas; f++) {
-        for (let c = 0; c < columnas; c++) {
-          contexto.fillStyle = estado.grid[f][c] === 1 ? "#0d2b16" : "#000";
-          contexto.fillRect(c * tam, f * tam, tam, tam);
-          contexto.strokeStyle = "#123";
-          contexto.strokeRect(c * tam, f * tam, tam, tam);
-        }
-      }
+    // El dominio solo entiende direcciones absolutas (arriba/abajo/izquierda/
+    // derecha = norte/sur/este/oeste fijos). Para que los controles se
+    // sientan como un juego en primera persona, "girar" es un cambio de
+    // orientacion puramente local (no llama al servidor) y "avanzar/
+    // retroceder" traduce esa orientacion actual a la direccion absoluta que
+    // corresponda antes de emitirla -- si no, mover la camara con las
+    // flechas se siente como teletransportarse a una celda vecina fija en
+    // vez de caminar hacia donde estas mirando.
+    const ORDEN_HORARIO = ["arriba", "derecha", "abajo", "izquierda"];
+    let direccionActual = "arriba";
 
-      // meta
-      contexto.fillStyle = "#e9c46a";
-      contexto.fillRect(estado.meta[1] * tam + 4, estado.meta[0] * tam + 4, tam - 8, tam - 8);
-
-      // jugador
-      contexto.fillStyle = "#35e05a";
-      contexto.beginPath();
-      contexto.arc(
-        estado.jugador[1] * tam + tam / 2,
-        estado.jugador[0] * tam + tam / 2,
-        tam / 3, 0, Math.PI * 2
-      );
-      contexto.fill();
+    function girar(sentido) {
+      const indiceActual = ORDEN_HORARIO.indexOf(direccionActual);
+      direccionActual = ORDEN_HORARIO[(indiceActual + sentido + ORDEN_HORARIO.length) % ORDEN_HORARIO.length];
+      camara.rotation.y = ANGULOS[direccionActual];
+      actualizarBrujula();
+      dibujarMinimapa(ultimoEstado);
     }
 
+    const canvas = document.getElementById("escena");
+    const estadoEl = document.getElementById("estado");
+    const overlayFin = document.getElementById("overlay-fin");
+    const brujulaEl = document.getElementById("brujula");
+    const minimapaCanvas = document.getElementById("minimapa");
+    const minimapaCtx = minimapaCanvas.getContext("2d");
+
+    const CARDINALES = { arriba: "Norte", abajo: "Sur", izquierda: "Oeste", derecha: "Este" };
+    // Angulo (convencion canvas 2D: 0 = apunta a +x, crece en sentido
+    // horario) para dibujar la flecha del jugador en el minimapa apuntando
+    // hacia donde mira de verdad -- misma idea que ANGULOS pero para 2D.
+    const ANGULOS_MINIMAPA = { arriba: -Math.PI / 2, derecha: 0, abajo: Math.PI / 2, izquierda: Math.PI };
+
+    let ultimoEstado = null;
+
+    function actualizarBrujula() {
+      brujulaEl.textContent = `Mirando: ${CARDINALES[direccionActual]}`;
+    }
+
+    function dibujarMinimapa(estado) {
+      if (!estado) return;
+      const tamano = minimapaCanvas.width;
+      const escala = tamano / Math.max(estado.filas, estado.columnas);
+
+      minimapaCtx.clearRect(0, 0, tamano, tamano);
+
+      minimapaCtx.strokeStyle = "#666";
+      minimapaCtx.lineWidth = 1;
+      minimapaCtx.beginPath();
+      for (let fila = 0; fila < estado.filas; fila++) {
+        for (let columna = 0; columna < estado.columnas; columna++) {
+          const celda = estado.paredes[fila][columna];
+          const x = columna * escala;
+          const y = fila * escala;
+          if (celda.arriba) { minimapaCtx.moveTo(x, y); minimapaCtx.lineTo(x + escala, y); }
+          if (celda.abajo) { minimapaCtx.moveTo(x, y + escala); minimapaCtx.lineTo(x + escala, y + escala); }
+          if (celda.izquierda) { minimapaCtx.moveTo(x, y); minimapaCtx.lineTo(x, y + escala); }
+          if (celda.derecha) { minimapaCtx.moveTo(x + escala, y); minimapaCtx.lineTo(x + escala, y + escala); }
+        }
+      }
+      minimapaCtx.stroke();
+
+      const centroCelda = (fila, columna) => [(columna + 0.5) * escala, (fila + 0.5) * escala];
+
+      const [metaX, metaY] = centroCelda(estado.meta[0], estado.meta[1]);
+      minimapaCtx.fillStyle = "#e9c46a";
+      minimapaCtx.beginPath();
+      minimapaCtx.arc(metaX, metaY, escala * 0.22, 0, Math.PI * 2);
+      minimapaCtx.fill();
+
+      const [enemigoX, enemigoY] = centroCelda(estado.enemigo[0], estado.enemigo[1]);
+      minimapaCtx.fillStyle = "#ff3b3b";
+      minimapaCtx.beginPath();
+      minimapaCtx.arc(enemigoX, enemigoY, escala * 0.22, 0, Math.PI * 2);
+      minimapaCtx.fill();
+
+      const [jugadorX, jugadorY] = centroCelda(estado.jugador[0], estado.jugador[1]);
+      minimapaCtx.save();
+      minimapaCtx.translate(jugadorX, jugadorY);
+      minimapaCtx.rotate(ANGULOS_MINIMAPA[direccionActual]);
+      minimapaCtx.fillStyle = "#7dffb0";
+      minimapaCtx.beginPath();
+      minimapaCtx.moveTo(escala * 0.38, 0);
+      minimapaCtx.lineTo(-escala * 0.26, escala * 0.24);
+      minimapaCtx.lineTo(-escala * 0.26, -escala * 0.24);
+      minimapaCtx.closePath();
+      minimapaCtx.fill();
+      minimapaCtx.restore();
+    }
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    const escena = new THREE.Scene();
+    escena.background = new THREE.Color(0x000000);
+    escena.fog = new THREE.Fog(0x000000, 6, 28);
+
+    const camara = new THREE.PerspectiveCamera(75, (canvas.clientWidth || 640) / (canvas.clientHeight || 480), 0.1, 1000);
+
+    let laberintoConstruido = false;
+    let posicionJugadorAnterior = null;
+    let mallaEnemigo = null;
+    let marcadorMeta = null;
+
+    const posicionCamaraDesde = new THREE.Vector3();
+    const posicionCamaraHasta = new THREE.Vector3();
+    let animandoCamara = false;
+    let inicioAnimacion = 0;
+
+    function celdaAMundo(fila, columna) {
+      return new THREE.Vector3(columna * CELDA, 0, fila * CELDA);
+    }
+
+    // Pared "pintada": relleno solido (no wireframe, para que se vea
+    // claramente que ahi no se puede pasar) mas un borde brillante encima
+    // (EdgesGeometry) para conservar el aspecto neon y que las esquinas se
+    // distingan aunque el material de relleno no reciba luces.
+    function crearPared(geometria, colorRelleno, colorBorde) {
+      const grupo = new THREE.Group();
+      grupo.add(new THREE.Mesh(geometria, new THREE.MeshBasicMaterial({ color: colorRelleno })));
+      grupo.add(new THREE.LineSegments(
+        new THREE.EdgesGeometry(geometria),
+        new THREE.LineBasicMaterial({ color: colorBorde })
+      ));
+      return grupo;
+    }
+
+    function agregarParedHorizontal(grupo, colores, x, z) {
+      const geometria = new THREE.BoxGeometry(CELDA, ALTURA_PARED, GROSOR_PARED);
+      const malla = crearPared(geometria, colores.relleno, colores.borde);
+      malla.position.set(x, ALTURA_PARED / 2, z);
+      grupo.add(malla);
+    }
+
+    function agregarParedVertical(grupo, colores, x, z) {
+      const geometria = new THREE.BoxGeometry(GROSOR_PARED, ALTURA_PARED, CELDA);
+      const malla = crearPared(geometria, colores.relleno, colores.borde);
+      malla.position.set(x, ALTURA_PARED / 2, z);
+      grupo.add(malla);
+    }
+
+    function construirLaberinto(estado) {
+      const grupo = new THREE.Group();
+      // Dos colores distintos segun el eje de la pared -- con un solo color
+      // era imposible distinguir a simple vista un pasillo norte-sur de uno
+      // este-oeste, y por eso costaba entender hacia donde doblar. Verde =
+      // paredes que cruzan de este a oeste (topan al caminar norte/sur);
+      // cian = paredes que cruzan de norte a sur (topan al caminar
+      // este/oeste) -- mismo criterio que usa el minimapa. Relleno solido
+      // (no wireframe): con solo el contorno no se distinguia bien por
+      // donde se podia pasar y por donde no.
+      const coloresArribaAbajo = { relleno: 0x0f4d2a, borde: 0x35e05a };
+      const coloresIzquierdaDerecha = { relleno: 0x0d3a4d, borde: 0x33d6ff };
+
+      for (let fila = 0; fila < estado.filas; fila++) {
+        for (let columna = 0; columna < estado.columnas; columna++) {
+          const celda = estado.paredes[fila][columna];
+          const centro = celdaAMundo(fila, columna);
+
+          // Cada pared interna se dibuja una sola vez (la comparten dos
+          // celdas): solo el borde superior/izquierdo del laberinto
+          // necesita un chequeo aparte, porque no tiene celda "dueña" del
+          // otro lado.
+          if (fila === 0 && celda.arriba) {
+            agregarParedHorizontal(grupo, coloresArribaAbajo, centro.x, centro.z - CELDA / 2);
+          }
+          if (celda.abajo) {
+            agregarParedHorizontal(grupo, coloresArribaAbajo, centro.x, centro.z + CELDA / 2);
+          }
+          if (columna === 0 && celda.izquierda) {
+            agregarParedVertical(grupo, coloresIzquierdaDerecha, centro.x - CELDA / 2, centro.z);
+          }
+          if (celda.derecha) {
+            agregarParedVertical(grupo, coloresIzquierdaDerecha, centro.x + CELDA / 2, centro.z);
+          }
+        }
+      }
+      escena.add(grupo);
+
+      const anchoTotal = estado.columnas * CELDA;
+      const largoTotal = estado.filas * CELDA;
+      const divisiones = estado.columnas + estado.filas;
+
+      const piso = new THREE.GridHelper(Math.max(anchoTotal, largoTotal) * 1.2, divisiones, 0x35e05a, 0x123018);
+      piso.position.set(anchoTotal / 2 - CELDA / 2, 0, largoTotal / 2 - CELDA / 2);
+      escena.add(piso);
+
+      const techo = piso.clone();
+      techo.position.y = ALTURA_PARED;
+      escena.add(techo);
+
+      const centroMeta = celdaAMundo(estado.meta[0], estado.meta[1]);
+      marcadorMeta = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.6),
+        new THREE.MeshBasicMaterial({ color: 0xe9c46a, wireframe: true })
+      );
+      marcadorMeta.position.set(centroMeta.x, ALTURA_PARED / 2, centroMeta.z);
+      escena.add(marcadorMeta);
+
+      mallaEnemigo = new THREE.Mesh(
+        new THREE.SphereGeometry(0.5, 12, 12),
+        new THREE.MeshBasicMaterial({ color: 0xff3b3b })
+      );
+      escena.add(mallaEnemigo);
+
+      laberintoConstruido = true;
+    }
+
+    function actualizarEscena(estado) {
+      if (!laberintoConstruido) {
+        construirLaberinto(estado);
+      }
+
+      const nuevaPosicion = estado.jugador;
+      const posicionAnterior = posicionJugadorAnterior;
+      posicionJugadorAnterior = nuevaPosicion;
+
+      const mundoNuevo = celdaAMundo(nuevaPosicion[0], nuevaPosicion[1]);
+      mundoNuevo.y = ALTURA_OJOS;
+
+      if (posicionAnterior === null) {
+        camara.position.copy(mundoNuevo);
+        camara.rotation.y = ANGULOS[direccionActual];
+        actualizarBrujula();
+      } else if (posicionAnterior[0] !== nuevaPosicion[0] || posicionAnterior[1] !== nuevaPosicion[1]) {
+        // La orientacion no cambia al caminar -- solo `girar()` la toca --
+        // asi avanzar/retroceder se siente coherente con hacia donde mira
+        // la camara, en vez de saltar a una orientacion "absoluta" fija.
+        posicionCamaraDesde.copy(camara.position);
+        posicionCamaraHasta.copy(mundoNuevo);
+        animandoCamara = true;
+        inicioAnimacion = performance.now();
+      }
+
+      const mundoEnemigo = celdaAMundo(estado.enemigo[0], estado.enemigo[1]);
+      mallaEnemigo.position.set(mundoEnemigo.x, 1.0, mundoEnemigo.z);
+
+      ultimoEstado = estado;
+      dibujarMinimapa(estado);
+    }
+
+    function mostrarFin(titulo, detalle) {
+      document.getElementById("titulo-fin").textContent = titulo;
+      document.getElementById("detalle-fin").textContent = detalle;
+      overlayFin.classList.add("visible");
+    }
+
+    function animar() {
+      requestAnimationFrame(animar);
+
+      if (animandoCamara) {
+        const progreso = Math.min((performance.now() - inicioAnimacion) / DURACION_ANIMACION_MS, 1);
+        camara.position.lerpVectors(posicionCamaraDesde, posicionCamaraHasta, progreso);
+        if (progreso >= 1) animandoCamara = false;
+      }
+
+      if (mallaEnemigo) mallaEnemigo.rotation.y += 0.03;
+      if (marcadorMeta) {
+        marcadorMeta.rotation.y += 0.02;
+        marcadorMeta.rotation.x += 0.015;
+      }
+
+      renderer.render(escena, camara);
+    }
+
+    function ajustarTamano() {
+      const ancho = canvas.clientWidth || 640;
+      const alto = canvas.clientHeight || 480;
+      renderer.setSize(ancho, alto, false);
+      camara.aspect = ancho / alto;
+      camara.updateProjectionMatrix();
+    }
+    window.addEventListener("resize", ajustarTamano);
+    ajustarTamano();
+    animar();
+
+    // --- Conexion en tiempo real ---
     const socket = io(`${location.protocol}//${location.hostname}:5000/laberinto`, {
       auth: { token: sesion.token },
     });
@@ -69,26 +361,39 @@
     socket.on("connect", () => { estadoEl.textContent = "Conectado. ¡Moveté con las flechas!"; });
     socket.on("connect_error", () => { estadoEl.textContent = "No se pudo autenticar la sesión."; });
     socket.on("disconnect", () => { estadoEl.textContent = "Desconectado."; });
-    socket.on("estado", (estado) => dibujar(estado));
+    socket.on("estado", (estado) => actualizarEscena(estado));
 
     socket.on("ganaste", (datos) => {
       sessionStorage.setItem("matrix_game_tiempo", datos.tiempo_segundos);
-      location.href = "../celebracion/index.html";
+      mostrarFin("¡Ganaste!", `Tiempo: ${datos.tiempo_segundos.toFixed(1)}s`);
+      setTimeout(() => { location.href = "../celebracion/index.html"; }, 1200);
     });
 
-    const TECLAS = {
-      ArrowUp: "arriba",
-      ArrowDown: "abajo",
-      ArrowLeft: "izquierda",
-      ArrowRight: "derecha",
-    };
+    socket.on("perdiste", () => {
+      mostrarFin("Game Over", "El enemigo te atrapó.");
+    });
 
     document.addEventListener("keydown", (evento) => {
-      const direccion = TECLAS[evento.key];
-      if (direccion) {
+      if (overlayFin.classList.contains("visible")) return;
+
+      if (evento.key === "ArrowUp") {
         evento.preventDefault();
-        socket.emit("mover", { direccion });
+        socket.emit("mover", { direccion: direccionActual });
+      } else if (evento.key === "ArrowDown") {
+        evento.preventDefault();
+        socket.emit("mover", { direccion: OPUESTA[direccionActual] });
+      } else if (evento.key === "ArrowLeft") {
+        evento.preventDefault();
+        girar(-1);
+      } else if (evento.key === "ArrowRight") {
+        evento.preventDefault();
+        girar(1);
       }
+    });
+
+    document.getElementById("btn-reintentar").addEventListener("click", () => location.reload());
+    document.getElementById("btn-volver").addEventListener("click", () => {
+      location.href = "../dashboard/index.html";
     });
   </script>
 </body>

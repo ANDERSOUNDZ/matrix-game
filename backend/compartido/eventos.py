@@ -23,3 +23,16 @@ class PartidaGanada:
     usuario_id: str
     tiempo_segundos: float
     ocurrido_en: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass(frozen=True)
+class PartidaPerdida:
+    """Publicado por el modulo `laberinto` cuando el enemigo atrapa al
+    jugador (game over). Por ahora ningun otro modulo esta suscripto -- se
+    publica igual, siguiendo el mismo patron que `PartidaGanada`, por si en
+    el futuro algo (por ejemplo, estadisticas) necesita reaccionar.
+    """
+
+    partida_id: str
+    usuario_id: str
+    ocurrido_en: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

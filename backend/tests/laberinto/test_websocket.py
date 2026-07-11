@@ -34,6 +34,15 @@ def test_namespace_emite_estado_al_conectar_con_token_valido():
     nombres_de_evento = [mensaje["name"] for mensaje in recibidos]
     assert "estado" in nombres_de_evento
 
+    primer_estado = next(m["args"][0] for m in recibidos if m["name"] == "estado")
+    assert "paredes" in primer_estado
+    assert "enemigo" in primer_estado
+    assert primer_estado["jugador"] != primer_estado["enemigo"]
+
+    # Detiene el hilo de fondo del tick del enemigo (ver on_disconnect en
+    # websocket.py) para no dejarlo corriendo entre tests.
+    cliente.disconnect(namespace="/laberinto")
+
 
 def test_namespace_rechaza_conexion_con_token_invalido():
     app, socketio = _crear_app_y_socketio()
