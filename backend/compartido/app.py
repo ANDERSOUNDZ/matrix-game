@@ -74,7 +74,10 @@ app, socketio = crear_app()
 
 if __name__ == "__main__":
     host = os.environ.get("FLASK_HOST", "0.0.0.0")
-    port = int(os.environ.get("FLASK_PORT", "5000"))
+    # Railway (y la mayoria de los hostings) inyectan PORT y esperan que la
+    # app escuche ahi -- FLASK_PORT sigue siendo el default para desarrollo
+    # local via .env.
+    port = int(os.environ.get("PORT") or os.environ.get("FLASK_PORT", "5000"))
     print(f"\n[SERVER] Abre http://localhost:{port} en tu navegador")
     # allow_unsafe_werkzeug: el servidor de desarrollo de Flask alcanza para
     # este cascaron. Antes de un despliegue real, cambiar a un servidor WSGI

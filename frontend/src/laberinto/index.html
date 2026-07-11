@@ -127,6 +127,7 @@
 
   <audio id="musica-fondo" src="music/Matrix_-_Clubbed_To_Death_(mp3.pm).mp3" loop preload="auto"></audio>
 
+  <script src="../config.js"></script>
   <script src="../comun.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -772,7 +773,10 @@
     document.addEventListener("webkitfullscreenchange", alCambiarFullscreen);
 
     // --- Conexion en tiempo real ---
-    const socket = io(`${location.protocol}//${location.hostname}:5000/laberinto`, {
+    // Reutiliza API_BASE (comun.js) en vez de armar su propia URL con
+    // :5000 fijo -- en produccion (Railway u otro hosting) el backend no
+    // esta en "mismo host, otro puerto", esta en un dominio aparte.
+    const socket = io(`${API_BASE}/laberinto`, {
       auth: { token: sesion.token },
     });
 
