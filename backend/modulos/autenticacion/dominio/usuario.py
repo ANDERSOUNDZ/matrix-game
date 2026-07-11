@@ -15,17 +15,23 @@ from modulos.autenticacion.dominio.errores import CredencialesInvalidasError
 
 
 class Usuario:
-    def __init__(self, id, email, password_hash):
+    def __init__(self, id, email, password_hash, nombre=None):
         self.id = id
         self.email = email
         self.password_hash = password_hash
+        self.nombre = nombre
 
     @classmethod
-    def registrar(cls, email, password_en_claro):
+    def registrar(cls, email, password_en_claro, nombre):
         """Crea un Usuario nuevo (sin id todavía -- lo asigna la persistencia
         al guardarlo) con la contraseña ya hasheada; nunca se guarda en
         texto plano."""
-        return cls(id=None, email=email, password_hash=generate_password_hash(password_en_claro))
+        return cls(
+            id=None,
+            email=email,
+            password_hash=generate_password_hash(password_en_claro),
+            nombre=nombre,
+        )
 
     def verificar_password(self, password_en_claro):
         """Lanza CredencialesInvalidasError si la contraseña no coincide."""

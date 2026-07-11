@@ -3,72 +3,276 @@
 <head>
   <meta charset="UTF-8">
   <title>Matrix Game — Autenticación</title>
+
   <style>
     body {
-      background: #05070a; color: #35e05a; font-family: 'Courier New', monospace;
-      padding: 2rem; max-width: 420px; margin: 0 auto;
+      background: #05070a;
+      color: #35e05a;
+      font-family: 'Courier New', monospace;
+      padding: 2rem;
+      max-width: 420px;
+      margin: 0 auto;
     }
-    h1 { text-transform: uppercase; letter-spacing: 2px; }
-    input, button {
-      display: block; width: 100%; margin-bottom: .75rem; padding: .6rem;
-      font-family: inherit; font-size: 1rem; box-sizing: border-box;
+
+    h1 {
+      text-transform: uppercase;
+      letter-spacing: 2px;
     }
-    button { background: #123018; color: #7dffb0; border: 1px solid #35e05a; cursor: pointer; }
-    button:hover { background: #1c4a26; }
-    #mensaje { color: #ff6b6b; min-height: 1.2em; }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid #1c3a24;
+    }
+
+    .tab {
+      flex: 1;
+      padding: .7rem;
+      background: transparent;
+      color: #4d7958;
+      border: none;
+      border-bottom: 2px solid transparent;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+    }
+
+    .tab.activo {
+      color: #35e05a;
+      border-bottom-color: #35e05a;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin-bottom: .9rem;
+      padding: 0 .5rem;
+      border-bottom: 1px solid #35e05a;
+      background: rgba(53, 224, 90, 0.03);
+    }
+
+    .input-group.campo-nombre {
+      display: none;
+    }
+
+    .input-group.campo-nombre.visible {
+      display: flex;
+    }
+
+    .input-group span {
+      color: #35e05a;
+      font-weight: bold;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: .7rem 0;
+      color: #7dffb0;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-family: inherit;
+      font-size: 1rem;
+      caret-color: #35e05a;
+    }
+
+    .input-group input::placeholder {
+      color: #4d7958;
+    }
+
+    .input-group:focus-within {
+      background: rgba(53, 224, 90, 0.08);
+      box-shadow: inset 3px 0 0 #35e05a;
+    }
+
+    button[type="submit"] {
+      display: block;
+      width: 100%;
+      margin-bottom: .75rem;
+      padding: .7rem;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-sizing: border-box;
+      cursor: pointer;
+      background: #35e05a;
+      color: #05070a;
+      border: 1px solid #35e05a;
+    }
+
+    button[type="submit"]:hover {
+      background: #7dffb0;
+      border-color: #7dffb0;
+      box-shadow: 0 0 12px rgba(53, 224, 90, 0.5);
+    }
+
+    #mensaje {
+      color: #ff6b6b;
+      min-height: 1.2em;
+    }
   </style>
 </head>
+
 <body>
   <h1>Matrix Game</h1>
+
   <p>Iniciá sesión o creá una cuenta para jugar.</p>
 
+  <div class="tabs">
+    <button type="button" class="tab activo" id="tab-login">
+      Iniciar sesión
+    </button>
+
+    <button type="button" class="tab" id="tab-registro">
+      Crear cuenta
+    </button>
+  </div>
+
   <form id="form-auth">
-    <input type="email" id="email" placeholder="email" required>
-    <input type="password" id="password" placeholder="contraseña (mínimo 4 caracteres)" required minlength="4">
-    <button type="submit">Iniciar sesión</button>
-    <button type="button" id="btn-registro">Crear cuenta</button>
+
+    <div class="input-group campo-nombre" id="grupo-nombre">
+      <span>&gt;</span>
+
+      <input
+        type="text"
+        id="nombre"
+        autocomplete="off"
+        placeholder="nombre"
+      >
+    </div>
+
+    <div class="input-group">
+      <span>&gt;</span>
+
+      <input
+        type="email"
+        id="email"
+        autocomplete="off"
+        placeholder="email"
+        required
+      >
+    </div>
+
+    <div class="input-group">
+      <span>&gt;</span>
+
+      <input
+        type="password"
+        id="password"
+        placeholder="contraseña (mínimo 4 caracteres)"
+        required
+        minlength="4"
+      >
+    </div>
+
+    <button type="submit" id="btn-enviar">
+      Iniciar sesión
+    </button>
   </form>
+
   <p id="mensaje"></p>
 
   <script src="../comun.js"></script>
+
   <script>
     const form = document.getElementById("form-auth");
     const mensaje = document.getElementById("mensaje");
+    const tabLogin = document.getElementById("tab-login");
+    const tabRegistro = document.getElementById("tab-registro");
+    const grupoNombre = document.getElementById("grupo-nombre");
+    const campoNombre = document.getElementById("nombre");
+    const btnEnviar = document.getElementById("btn-enviar");
 
-    async function autenticar(ruta) {
+    let modo = "login";
+
+    function activarModo(nuevoModo) {
+      modo = nuevoModo;
       mensaje.textContent = "";
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
+
+      const esRegistro = modo === "registro";
+
+      tabLogin.classList.toggle("activo", !esRegistro);
+      tabRegistro.classList.toggle("activo", esRegistro);
+      grupoNombre.classList.toggle("visible", esRegistro);
+      campoNombre.required = esRegistro;
+      btnEnviar.textContent = esRegistro ? "Crear cuenta" : "Iniciar sesión";
+    }
+
+    tabLogin.addEventListener("click", () => activarModo("login"));
+    tabRegistro.addEventListener("click", () => activarModo("registro"));
+
+    async function autenticar() {
+      mensaje.textContent = "";
+
+      const ruta = modo === "registro" ? "/auth/registro" : "/auth/login";
+
+      const email = document
+        .getElementById("email")
+        .value
+        .trim();
+
+      const password = document
+        .getElementById("password")
+        .value;
+
+      const cuerpo = { email, password };
+
+      if (modo === "registro") {
+        cuerpo.nombre = campoNombre.value.trim();
+      }
 
       let respuesta;
+
       try {
         respuesta = await fetch(`${API_BASE}${ruta}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(cuerpo),
         });
       } catch (error) {
-        mensaje.textContent = "No se pudo conectar con el backend.";
+        mensaje.textContent =
+          "No se pudo conectar con el backend.";
+
         return;
       }
 
       const datos = await respuesta.json();
+
       if (!respuesta.ok || !datos.ok) {
-        mensaje.textContent = datos.error || "Error desconocido.";
+        mensaje.textContent =
+          datos.error || "Error desconocido.";
+
         return;
       }
 
-      guardarSesion({ token: datos.token, usuario: datos.usuario });
-      location.href = "../dashboard/index.html";
+      if (modo === "registro") {
+        form.reset();
+        activarModo("login");
+        document.getElementById("email").value = email;
+        mensaje.style.color = "#35e05a";
+        mensaje.textContent = "Cuenta creada. Ya podés iniciar sesión.";
+        return;
+      }
+
+      guardarSesion({
+        token: datos.token,
+        usuario: datos.usuario
+      });
+
+      location.href = "../dashboard/index.html?showEffect=true";
     }
 
     form.addEventListener("submit", (evento) => {
       evento.preventDefault();
-      autenticar("/auth/login");
-    });
-
-    document.getElementById("btn-registro").addEventListener("click", () => {
-      autenticar("/auth/registro");
+      autenticar();
     });
   </script>
 </body>

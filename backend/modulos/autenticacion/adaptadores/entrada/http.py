@@ -32,17 +32,22 @@ def registro():
     datos = request.get_json(silent=True) or {}
     email = (datos.get("email") or "").strip().lower()
     password = datos.get("password") or ""
+    nombre = (datos.get("nombre") or "").strip()
 
-    if not email or "@" not in email or len(password) < 4:
-        return jsonify(ok=False, error="email o password inválidos"), 400
+    if not email or "@" not in email or len(password) < 4 or not nombre:
+        return jsonify(ok=False, error="nombre, email o password inválidos"), 400
 
     try:
-        usuario = registrar_usuario_use_case.ejecutar(email, password)
+        usuario = registrar_usuario_use_case.ejecutar(email, password, nombre)
     except EmailYaRegistradoError:
         return jsonify(ok=False, error="ya existe una cuenta con ese email"), 409
 
     token = emitir_token(usuario.id)
-    return jsonify(ok=True, token=token, usuario={"id": usuario.id, "email": usuario.email})
+    return jsonify(
+        ok=True,
+        token=token,
+        usuario={"id": usuario.id, "email": usuario.email, "nombre": usuario.nombre},
+    )
 
 
 @autenticacion_bp.post("/login")
@@ -56,7 +61,11 @@ def login():
     except CredencialesInvalidasError:
         return jsonify(ok=False, error="email o password incorrectos"), 401
 
-    return jsonify(ok=True, token=token, usuario={"id": usuario.id, "email": usuario.email})
+    return jsonify(
+        ok=True,
+        token=token,
+        usuario={"id": usuario.id, "email": usuario.email, "nombre": usuario.nombre},
+    )
 
 
 def _usuario_id_del_request():
