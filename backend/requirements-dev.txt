@@ -1,0 +1,5 @@
+# Dependencias solo para desarrollo (tests, linting), separadas de
+# requirements.txt que son las que necesita la app en produccion.
+-r requirements.txt
+pytest
+ruff

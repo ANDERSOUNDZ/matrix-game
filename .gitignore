@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Entorno / secretos (ver 0.5 de la guia: nunca versionar esto)
+.env
+
+# Node / frontend (por si en el futuro se agrega un build step)
+node_modules/
+dist/
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+
+# Contenido generado en tiempo de ejecucion (fotos subidas por los usuarios)
+backend/almacenamiento/

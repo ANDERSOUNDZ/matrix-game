@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Matrix Game — Laberinto</title>
+  <style>
+    body {
+      background: #000; color: #35e05a; font-family: 'Courier New', monospace;
+      padding: 2rem; max-width: 420px; margin: 0 auto; text-align: center;
+    }
+    canvas { background: #000; border: 1px solid #1f4d2c; margin-top: 1rem; }
+    #estado { margin-top: .5rem; min-height: 1.2em; }
+    a { color: #7dffb0; }
+  </style>
+</head>
+<body>
+  <p><a href="../dashboard/index.html">&larr; volver al dashboard</a></p>
+  <h1>Laberinto</h1>
+  <p>Usá las flechas del teclado para llegar a la celda dorada.</p>
+  <div id="estado">Conectando...</div>
+  <canvas id="grid" width="350" height="350"></canvas>
+
+  <script src="../comun.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    const sesion = obtenerSesion();
+    if (!sesion) {
+      location.href = "../autenticacion/index.html";
+    }
+
+    const canvas = document.getElementById("grid");
+    const contexto = canvas.getContext("2d");
+    const estadoEl = document.getElementById("estado");
+
+    function dibujar(estado) {
+      const filas = estado.grid.length;
+      const columnas = estado.grid[0].length;
+      const tam = canvas.width / columnas;
+
+      contexto.clearRect(0, 0, canvas.width, canvas.height);
+      for (let f = 0; f < filas; f++) {
+        for (let c = 0; c < columnas; c++) {
+          contexto.fillStyle = estado.grid[f][c] === 1 ? "#0d2b16" : "#000";
+          contexto.fillRect(c * tam, f * tam, tam, tam);
+          contexto.strokeStyle = "#123";
+          contexto.strokeRect(c * tam, f * tam, tam, tam);
+        }
+      }
+
+      // meta
+      contexto.fillStyle = "#e9c46a";
+      contexto.fillRect(estado.meta[1] * tam + 4, estado.meta[0] * tam + 4, tam - 8, tam - 8);
+
+      // jugador
+      contexto.fillStyle = "#35e05a";
+      contexto.beginPath();
+      contexto.arc(
+        estado.jugador[1] * tam + tam / 2,
+        estado.jugador[0] * tam + tam / 2,
+        tam / 3, 0, Math.PI * 2
+      );
+      contexto.fill();
+    }
+
+    const socket = io(`${location.protocol}//${location.hostname}:5000/laberinto`, {
+      auth: { token: sesion.token },
+    });
+
+    socket.on("connect", () => { estadoEl.textContent = "Conectado. ¡Moveté con las flechas!"; });
+    socket.on("connect_error", () => { estadoEl.textContent = "No se pudo autenticar la sesión."; });
+    socket.on("disconnect", () => { estadoEl.textContent = "Desconectado."; });
+    socket.on("estado", (estado) => dibujar(estado));
+
+    socket.on("ganaste", (datos) => {
+      sessionStorage.setItem("matrix_game_tiempo", datos.tiempo_segundos);
+      location.href = "../celebracion/index.html";
+    });
+
+    const TECLAS = {
+      ArrowUp: "arriba",
+      ArrowDown: "abajo",
+      ArrowLeft: "izquierda",
+      ArrowRight: "derecha",
+    };
+
+    document.addEventListener("keydown", (evento) => {
+      const direccion = TECLAS[evento.key];
+      if (direccion) {
+        evento.preventDefault();
+        socket.emit("mover", { direccion });
+      }
+    });
+  </script>
+</body>
+</html>

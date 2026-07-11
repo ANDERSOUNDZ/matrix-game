@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Matrix Game</title>
+</head>
+<body>
+  <script src="src/comun.js"></script>
+  <script>
+    // Punto de entrada: redirige según haya o no una sesión guardada.
+    const sesion = obtenerSesion();
+    location.href = sesion ? "src/dashboard/index.html" : "src/autenticacion/index.html";
+  </script>
+</body>
+</html>

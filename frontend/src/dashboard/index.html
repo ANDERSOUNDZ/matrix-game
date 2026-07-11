@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Matrix Game — Dashboard</title>
+  <style>
+    body {
+      background: #05070a; color: #35e05a; font-family: 'Courier New', monospace;
+      padding: 2rem; max-width: 420px; margin: 0 auto; text-align: center;
+    }
+    h1 { text-transform: uppercase; letter-spacing: 2px; }
+    button {
+      display: block; width: 100%; margin-top: 1rem; padding: .8rem;
+      font-family: inherit; font-size: 1rem; background: #123018; color: #7dffb0;
+      border: 1px solid #35e05a; cursor: pointer;
+    }
+    button:hover { background: #1c4a26; }
+    #btn-jugar { font-size: 1.2rem; padding: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Matrix Game</h1>
+  <p id="saludo"></p>
+
+  <button id="btn-jugar">Jugar</button>
+  <button id="btn-logout">Cerrar sesión</button>
+
+  <script src="../comun.js"></script>
+  <script>
+    const sesion = obtenerSesion();
+    if (!sesion) {
+      location.href = "../autenticacion/index.html";
+    } else {
+      document.getElementById("saludo").textContent = `Hola, ${sesion.usuario.email}`;
+    }
+
+    document.getElementById("btn-jugar").addEventListener("click", () => {
+      location.href = "../laberinto/index.html";
+    });
+
+    document.getElementById("btn-logout").addEventListener("click", async () => {
+      try {
+        await fetch(`${API_BASE}/auth/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${sesion.token}` },
+        });
+      } catch (error) {
+        // no importa si el backend no respondió: igual limpiamos la sesión local
+      }
+      borrarSesion();
+      location.href = "../autenticacion/index.html";
+    });
+  </script>
+</body>
+</html>

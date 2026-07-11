@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        working-directory: backend
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        working-directory: backend
+        run: ruff check .
+
+      - name: Tests
+        working-directory: backend
+        run: pytest -v
+
+  build-images:
+    runs-on: ubuntu-latest
+    needs: test-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build imagen de backend
+        run: docker build -t matrix-game-backend:ci ./backend
+
+      - name: Build imagen de frontend
+        run: docker build -t matrix-game-frontend:ci ./frontend
+
+  # --- DEPLOY (deshabilitado por defecto) ---
+  # Falta definir, antes de activar este job:
+  #   - a que servidor/registro se despliega (host, credenciales)
+  #   - como se hace el rollout ahi (ssh + docker compose pull? un registro
+  #     de contenedores + webhook? un servicio tipo Render/Fly/Railway?)
+  # Una vez decidido, agregar los secretos en Settings > Secrets del repo
+  # y descomentar este job (o crear uno nuevo) para que corra en push a main.
+  #
+  # deploy:
+  #   runs-on: ubuntu-latest
+  #   needs: build-images
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Desplegar
+  #       run: echo "TODO: definir estrategia de despliegue"
