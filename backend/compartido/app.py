@@ -12,6 +12,7 @@ responde) antes de que nadie le agregue reglas de negocio reales.
 import os
 
 from flask import Flask, jsonify
+from flask_cors import CORS
 from flask_socketio import SocketIO
 
 from modulos.autenticacion.adaptadores.entrada.http import autenticacion_bp
@@ -34,6 +35,15 @@ def crear_app():
     # módulo `autenticacion` directamente.
     verificador_de_sesion = JWTVerificadorDeSesion()
     app.config["VERIFICADOR_DE_SESION"] = verificador_de_sesion
+
+    # --- CORS ---
+    # El frontend (:8090) y el backend (:5000) son orígenes distintos (ver
+    # ADR 0002, decisión sobre el token JWT vía Authorization header en vez
+    # de cookie). Sin esto, el navegador bloquea las peticiones del
+    # frontend por la política de mismo origen, incluso si el backend
+    # respondería bien. `supports_credentials=False` porque no usamos
+    # cookies -- el token viaja en el header Authorization.
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
 
     # --- Adaptadores de entrada HTTP de cada modulo ---
     app.register_blueprint(autenticacion_bp)
