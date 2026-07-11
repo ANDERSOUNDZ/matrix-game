@@ -9,6 +9,29 @@ on:
 jobs:
   test-backend:
     runs-on: ubuntu-latest
+    # compartido/db.py falla rapido (a proposito) si DATABASE_URL no esta
+    # seteada -- y como el blueprint de autenticacion arrastra ese import
+    # ni siquiera coleccionar los tests funciona sin una Postgres real
+    # detras. Se levanta un servicio efimero igual que el de docker-compose
+    # en local, en vez de inventar una URL falsa (asi tambien queda listo
+    # para tests futuros que sí consulten la base).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: matrix_game
+          POSTGRES_USER: matrix_game
+          POSTGRES_PASSWORD: ci-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U matrix_game"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://matrix_game:ci-test-password@localhost:5432/matrix_game
+      JWT_SECRET: ci-test-secret
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +46,10 @@ jobs:
       - name: Lint
         working-directory: backend
         run: ruff check .
+
+      - name: Migraciones
+        working-directory: backend
+        run: python scripts/migrar_todo.py
 
       - name: Tests
         working-directory: backend
