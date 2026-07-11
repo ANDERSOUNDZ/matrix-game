@@ -10,8 +10,47 @@
     }
     h1 { margin: 0 0 .25rem; text-transform: uppercase; letter-spacing: 2px; }
     a { color: #7dffb0; }
+    #btn-fullscreen {
+      margin: .6rem auto 0; display: block;
+      padding: .5rem 1.2rem; font-family: inherit; font-size: .85rem;
+      background: #123018; color: #7dffb0; border: 1px solid #35e05a; cursor: pointer;
+    }
+    #btn-fullscreen:hover { background: #1c4a26; }
+
+    .layout-juego {
+      display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;
+      align-items: flex-start; max-width: 900px; margin: 1rem auto 0;
+    }
+    /* En pantalla completa el layout ocupa toda la ventana -- el mapa y la
+       camara de mano siguen en la barra lateral (misma estructura), y el
+       area de juego crece para aprovechar el espacio en vez de quedar
+       encerrada en su max-width de 640px. */
+    .layout-juego:fullscreen, .layout-juego:-webkit-full-screen {
+      max-width: none; width: 100vw; height: 100vh; margin: 0;
+      padding: 1rem; box-sizing: border-box; background: #000;
+    }
+    .layout-juego:fullscreen #contenedor-3d,
+    .layout-juego:-webkit-full-screen #contenedor-3d {
+      max-width: none; height: 100%;
+    }
+    .layout-juego:fullscreen #escena,
+    .layout-juego:-webkit-full-screen #escena {
+      height: 100%;
+    }
+    .layout-juego:fullscreen .panel-lateral,
+    .layout-juego:-webkit-full-screen .panel-lateral {
+      max-height: 100%; overflow-y: auto;
+    }
+    .panel-lateral { width: 200px; flex: 0 0 200px; display: flex; flex-direction: column; gap: .8rem; }
+    .tarjeta {
+      border: 1px solid #1f4d2c; background: rgba(0, 0, 0, 0.4); padding: .7rem; text-align: center;
+    }
+    .tarjeta h2 {
+      margin: 0 0 .5rem; font-size: .75rem; text-transform: uppercase;
+      letter-spacing: 1px; color: #7dffb0; font-weight: normal;
+    }
     #contenedor-3d {
-      position: relative; width: 100%; max-width: 640px; margin: 1rem auto 0;
+      position: relative; width: 100%; max-width: 640px; flex: 1 1 480px;
       border: 1px solid #1f4d2c; line-height: 0;
     }
     canvas { display: block; width: 100%; height: 480px; }
@@ -21,11 +60,7 @@
       background: rgba(0, 0, 0, 0.65); border: 1px solid #1f4d2c;
       font-size: .85rem; line-height: 1.4; letter-spacing: 1px; pointer-events: none;
     }
-    #minimapa {
-      position: absolute; top: .6rem; right: .6rem;
-      background: rgba(0, 0, 0, 0.65); border: 1px solid #1f4d2c;
-      width: 130px; height: 130px;
-    }
+    #minimapa { width: 100%; max-width: 170px; height: auto; margin: 0 auto; display: block; }
     #overlay-fin {
       position: absolute; inset: 0; background: rgba(0, 0, 0, 0.85);
       display: none; flex-direction: column; align-items: center; justify-content: center;
@@ -38,6 +73,20 @@
       background: #123018; color: #7dffb0; border: 1px solid #35e05a; cursor: pointer;
     }
     #overlay-fin button:hover { background: #1c4a26; }
+
+    #panel-mano button {
+      width: 100%; padding: .5rem .4rem; font-family: inherit; font-size: .78rem;
+      background: #123018; color: #7dffb0; border: 1px solid #35e05a; cursor: pointer;
+    }
+    #panel-mano button.active { background: #1c4a26; }
+    #mano-video-wrap {
+      position: relative; width: 100%; max-width: 180px; margin: .6rem auto 0; display: none;
+      border: 1px solid #1f4d2c; line-height: 0;
+    }
+    #mano-video-wrap.visible { display: block; }
+    #camara-mano { width: 100%; height: auto; object-fit: cover; transform: scaleX(-1); display: block; }
+    #zona-mano-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    #zona-mano-texto { margin-top: .4rem; font-size: .78rem; min-height: 1.2em; }
   </style>
 </head>
 <body>
@@ -45,18 +94,38 @@
   <h1>Laberinto</h1>
   <p>↑ avanza, ↓ retrocede, ←/→ girar. Un enemigo te persigue — ¡no dejes que te alcance!</p>
   <div id="estado">Conectando...</div>
+  <button id="btn-fullscreen">Pantalla completa</button>
 
-  <div id="contenedor-3d">
-    <canvas id="escena"></canvas>
-    <div id="brujula">Mirando: Norte</div>
-    <canvas id="minimapa" width="130" height="130"></canvas>
-    <div id="overlay-fin">
-      <h2 id="titulo-fin"></h2>
-      <p id="detalle-fin"></p>
-      <button id="btn-reintentar">Reintentar</button>
-      <button id="btn-volver">Volver al dashboard</button>
+  <div class="layout-juego" id="layout-juego">
+    <div class="panel-lateral">
+      <div class="tarjeta">
+        <h2>Mapa</h2>
+        <canvas id="minimapa" width="170" height="170"></canvas>
+      </div>
+      <div class="tarjeta" id="panel-mano">
+        <h2>Control por mano</h2>
+        <button id="btn-mano">Activar control por mano</button>
+        <div id="mano-video-wrap">
+          <video id="camara-mano" autoplay playsinline muted></video>
+          <canvas id="zona-mano-canvas" width="180" height="135"></canvas>
+        </div>
+        <p id="zona-mano-texto"></p>
+      </div>
+    </div>
+
+    <div id="contenedor-3d">
+      <canvas id="escena"></canvas>
+      <div id="brujula">Mirando: Norte</div>
+      <div id="overlay-fin">
+        <h2 id="titulo-fin"></h2>
+        <p id="detalle-fin"></p>
+        <button id="btn-reintentar">Reintentar</button>
+        <button id="btn-volver">Volver al dashboard</button>
+      </div>
     </div>
   </div>
+
+  <audio id="musica-fondo" src="music/Matrix_-_Clubbed_To_Death_(mp3.pm).mp3" loop preload="auto"></audio>
 
   <script src="../comun.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -65,6 +134,31 @@
     const sesion = obtenerSesion();
     if (!sesion) {
       location.href = "../autenticacion/index.html";
+    }
+
+    // --- Musica de fondo ---
+    // Suena en loop mientras se juega y se corta al ganar o perder. Los
+    // navegadores bloquean el autoplay con sonido si el documento no tuvo
+    // todavia un gesto real del usuario -- el click en "Jugar" del
+    // dashboard fue en OTRO documento, asi que no cuenta aca. Por eso se
+    // intenta reproducir de una, y si el navegador lo rechaza, se reintenta
+    // en la primera tecla que el jugador presione en esta pagina.
+    const musicaFondo = document.getElementById("musica-fondo");
+    musicaFondo.volume = 0.35;
+
+    function iniciarMusica() {
+      musicaFondo.currentTime = 0;
+      const intento = musicaFondo.play();
+      if (intento && intento.catch) {
+        intento.catch(() => {
+          document.addEventListener("keydown", () => musicaFondo.play().catch(() => {}), { once: true });
+        });
+      }
+    }
+
+    function detenerMusica() {
+      musicaFondo.pause();
+      musicaFondo.currentTime = 0;
     }
 
     // --- Escena 3D (ver docs/decisiones/0003-laberinto-3d-con-enemigo.md) ---
@@ -98,6 +192,235 @@
       actualizarBrujula();
       dibujarMinimapa(ultimoEstado);
     }
+
+    // --- Control por gestos de mano completa (joystick virtual) ---
+    // En vez de detectar que dedo esta cerrado (dificil de aislar para la
+    // mayoria de la gente), se usa la POSICION de la palma entera respecto
+    // al centro del encuadre de la camara: arriba=avanzar, abajo=retroceder,
+    // izquierda/derecha=girar -- como un joystick, sin importar la pose de
+    // los dedos. Reutiliza el mismo modelo MediaPipe Tasks Vision (WASM,
+    // corre en el navegador) que ya probamos en pixiodoc_tracker, pero con
+    // una capa de deteccion mas simple (sin calibracion ni histeresis por
+    // dedo, porque aca no miramos dedos individuales).
+    const TASKS_VISION_URL_MANO = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs';
+    const TASKS_VISION_WASM_MANO = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
+    const HAND_MODEL_URL_MANO = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+    const ZONA_MUERTA = 0.16; // radio (0..1) de la zona central sin accion -- hay que mover la mano con intencion clara
+    const MARGEN_HISTERESIS = 0.05; // hace falta un cambio claro para salir de la zona/eje actual, evita que titile en la diagonal
+    const SUAVIZADO_POSICION = 0.35; // 0..1: mas alto = responde mas rapido, mas bajo = mas estable
+    const INTERVALO_REPETICION_MANO_MS = 450; // como mantener apretada una flecha
+    // Puntos de la base de la mano (muñeca + base de los 4 dedos, no las
+    // puntas): promediarlos da el centro de la palma, estable sin importar
+    // si los dedos estan abiertos o cerrados.
+    const PUNTOS_PALMA = [0, 5, 9, 13, 17];
+
+    const btnMano = document.getElementById('btn-mano');
+    const videoMano = document.getElementById('camara-mano');
+    const envolturaVideoMano = document.getElementById('mano-video-wrap');
+    const canvasZona = document.getElementById('zona-mano-canvas');
+    const ctxZona = canvasZona.getContext('2d');
+    const textoZona = document.getElementById('zona-mano-texto');
+
+    let handLandmarker = null;
+    let streamMano = null;
+    let controlManoActivo = false;
+    let ultimoVideoTimeMano = -1;
+    let zonaMano = 'centro';
+    let ultimoDisparoMano = 0;
+    let palmaXSuave = 0.5;
+    let palmaYSuave = 0.5;
+    let posicionSuavizadaValida = false;
+
+    /**
+     * Zona nueva a partir de la posicion (con histeresis doble):
+     *  - Para volver a "centro" hay que acercarse mas al medio de lo que hizo
+     *    falta para salir (si no, tiembla en el borde de la zona muerta).
+     *  - Si ya estabamos en un eje (horizontal U vertical), el otro eje tiene
+     *    que ganarle con un margen claro para cambiar -- si no, cerca de la
+     *    diagonal la zona salta de una direccion a otra con el minimo
+     *    temblor de la mano, que es exactamente lo que se sentia impreciso.
+     */
+    function calcularZonaMano(dx, dy, zonaAnterior) {
+      const magnitud = Math.max(Math.abs(dx), Math.abs(dy));
+      const umbralDeadzone = zonaAnterior === 'centro' ? ZONA_MUERTA : ZONA_MUERTA - MARGEN_HISTERESIS;
+      if (magnitud < umbralDeadzone) return 'centro';
+
+      const diferencia = Math.abs(dx) - Math.abs(dy); // > 0 = mas horizontal, < 0 = mas vertical
+      const eraHorizontal = zonaAnterior === 'izquierda' || zonaAnterior === 'derecha';
+      const eraVertical = zonaAnterior === 'arriba' || zonaAnterior === 'abajo';
+
+      let esHorizontal;
+      if (eraHorizontal) esHorizontal = diferencia > -MARGEN_HISTERESIS;
+      else if (eraVertical) esHorizontal = diferencia > MARGEN_HISTERESIS;
+      else esHorizontal = diferencia > 0;
+
+      return esHorizontal ? (dx > 0 ? 'derecha' : 'izquierda') : (dy > 0 ? 'abajo' : 'arriba');
+    }
+
+    const ETIQUETAS_ZONA = {
+      centro: 'Centro', arriba: 'Avanzando', abajo: 'Retrocediendo',
+      izquierda: 'Girando izquierda', derecha: 'Girando derecha',
+    };
+
+    function dispararAccionDeZona(zona) {
+      if (overlayFin.classList.contains('visible')) return;
+      if (zona === 'arriba') socket.emit('mover', { direccion: direccionActual });
+      else if (zona === 'abajo') socket.emit('mover', { direccion: OPUESTA[direccionActual] });
+      else if (zona === 'izquierda') girar(-1);
+      else if (zona === 'derecha') girar(1);
+    }
+
+    /** Dispara al entrar a una zona nueva, y se repite mientras se sostenga. */
+    function procesarZonaMano(zonaNueva) {
+      const ahora = performance.now();
+      if (zonaNueva === 'centro') {
+        zonaMano = 'centro';
+        return;
+      }
+      if (zonaNueva !== zonaMano) {
+        zonaMano = zonaNueva;
+        ultimoDisparoMano = ahora;
+        dispararAccionDeZona(zonaNueva);
+      } else if (ahora - ultimoDisparoMano > INTERVALO_REPETICION_MANO_MS) {
+        ultimoDisparoMano = ahora;
+        dispararAccionDeZona(zonaNueva);
+      }
+    }
+
+    /** Dibuja la cruz de zonas, la zona muerta y un punto en la posicion de la mano. */
+    function dibujarZonaMano(dxEspejado, dy, detectada) {
+      const ancho = canvasZona.width;
+      const alto = canvasZona.height;
+      ctxZona.clearRect(0, 0, ancho, alto);
+
+      ctxZona.strokeStyle = 'rgba(53, 224, 90, 0.5)';
+      ctxZona.lineWidth = 1;
+      ctxZona.beginPath();
+      ctxZona.moveTo(ancho / 2, 0); ctxZona.lineTo(ancho / 2, alto);
+      ctxZona.moveTo(0, alto / 2); ctxZona.lineTo(ancho, alto / 2);
+      ctxZona.stroke();
+
+      ctxZona.strokeStyle = 'rgba(53, 224, 90, 0.35)';
+      ctxZona.beginPath();
+      ctxZona.arc(ancho / 2, alto / 2, ZONA_MUERTA * ancho, 0, Math.PI * 2);
+      ctxZona.stroke();
+
+      if (detectada) {
+        // dxEspejado/dy ya estan en el mismo sistema "espejo" que el video
+        // (transform: scaleX(-1)), asi el punto queda alineado con la mano real.
+        const x = (0.5 + dxEspejado) * ancho;
+        const y = (0.5 + dy) * alto;
+        ctxZona.fillStyle = zonaMano === 'centro' ? '#7dffb0' : '#ffe066';
+        ctxZona.beginPath();
+        ctxZona.arc(x, y, 6, 0, Math.PI * 2);
+        ctxZona.fill();
+      }
+
+      textoZona.textContent = detectada ? ETIQUETAS_ZONA[zonaMano] : 'Mano no detectada';
+    }
+
+    async function iniciarControlPorMano() {
+      btnMano.disabled = true;
+      btnMano.textContent = 'Iniciando...';
+
+      try {
+        streamMano = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+        videoMano.srcObject = streamMano;
+        await videoMano.play();
+
+        if (!handLandmarker) {
+          const { FilesetResolver, HandLandmarker } = await import(TASKS_VISION_URL_MANO);
+          const vision = await FilesetResolver.forVisionTasks(TASKS_VISION_WASM_MANO);
+          handLandmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: HAND_MODEL_URL_MANO, delegate: 'GPU' },
+            numHands: 1,
+            runningMode: 'video',
+            minHandDetectionConfidence: 0.5,
+            minHandPresenceConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+          });
+        }
+
+        controlManoActivo = true;
+        envolturaVideoMano.classList.add('visible');
+        btnMano.textContent = 'Desactivar control por mano';
+        btnMano.classList.add('active');
+        btnMano.disabled = false;
+        requestAnimationFrame(bucleControlMano);
+      } catch (e) {
+        console.error('[ControlMano] No se pudo iniciar:', e);
+        btnMano.disabled = false;
+        btnMano.textContent = 'Activar control por mano';
+      }
+    }
+
+    function detenerControlPorMano() {
+      controlManoActivo = false;
+      if (streamMano) {
+        streamMano.getTracks().forEach((t) => t.stop());
+        streamMano = null;
+      }
+      envolturaVideoMano.classList.remove('visible');
+      btnMano.textContent = 'Activar control por mano';
+      btnMano.classList.remove('active');
+      zonaMano = 'centro';
+      ctxZona.clearRect(0, 0, canvasZona.width, canvasZona.height);
+      textoZona.textContent = '';
+    }
+
+    function bucleControlMano() {
+      if (!controlManoActivo) return;
+
+      if (handLandmarker && videoMano.readyState >= 2 && videoMano.currentTime !== ultimoVideoTimeMano) {
+        ultimoVideoTimeMano = videoMano.currentTime;
+        try {
+          const resultado = handLandmarker.detectForVideo(videoMano, performance.now());
+          const manos = (resultado && resultado.landmarks) || [];
+          if (manos.length > 0) {
+            const lm = manos[0];
+            const palmaXCruda = PUNTOS_PALMA.reduce((s, i) => s + lm[i].x, 0) / PUNTOS_PALMA.length;
+            const palmaYCruda = PUNTOS_PALMA.reduce((s, i) => s + lm[i].y, 0) / PUNTOS_PALMA.length;
+
+            // Suavizado (media movil exponencial): el ruido de deteccion
+            // frame a frame es lo que mas se sentia como "dificil de
+            // controlar" -- esto lo aplana sin agregar demora perceptible.
+            if (!posicionSuavizadaValida) {
+              palmaXSuave = palmaXCruda;
+              palmaYSuave = palmaYCruda;
+              posicionSuavizadaValida = true;
+            } else {
+              palmaXSuave += (palmaXCruda - palmaXSuave) * SUAVIZADO_POSICION;
+              palmaYSuave += (palmaYCruda - palmaYSuave) * SUAVIZADO_POSICION;
+            }
+
+            // Espejo horizontal (el video se muestra con scaleX(-1), como un
+            // espejo): la mano real a la derecha del jugador debe dar dx>0.
+            const dxEspejado = 0.5 - palmaXSuave;
+            const dy = palmaYSuave - 0.5;
+
+            const zonaNueva = calcularZonaMano(dxEspejado, dy, zonaMano);
+            procesarZonaMano(zonaNueva);
+            dibujarZonaMano(dxEspejado, dy, true);
+          } else {
+            zonaMano = 'centro';
+            posicionSuavizadaValida = false;
+            dibujarZonaMano(0, 0, false);
+          }
+        } catch (e) {
+          // detectForVideo puede lanzar si el frame aun no esta listo
+        }
+      }
+
+      requestAnimationFrame(bucleControlMano);
+    }
+
+    btnMano.addEventListener('click', () => {
+      if (controlManoActivo) {
+        detenerControlPorMano();
+      } else {
+        iniciarControlPorMano();
+      }
+    });
 
     const canvas = document.getElementById("escena");
     const estadoEl = document.getElementById("estado");
@@ -190,30 +513,76 @@
       return new THREE.Vector3(columna * CELDA, 0, fila * CELDA);
     }
 
-    // Pared "pintada": relleno solido (no wireframe, para que se vea
-    // claramente que ahi no se puede pasar) mas un borde brillante encima
-    // (EdgesGeometry) para conservar el aspecto neon y que las esquinas se
-    // distingan aunque el material de relleno no reciba luces.
-    function crearPared(geometria, colorRelleno, colorBorde) {
+    // --- Lluvia Matrix animada sobre las paredes ---
+    // Un canvas 2D chico se usa como textura, y se redibuja unas cuantas
+    // veces por segundo (no cada frame, no hace falta) generando el efecto
+    // clasico de "codigo cayendo". El material tiñe esa textura de verde o
+    // cian segun el eje de la pared -- es la MISMA textura para las dos
+    // (mismo patron de caida), simplemente recoloreada, asi el costo es de
+    // un solo canvas para todo el laberinto.
+    const CARACTERES_LLUVIA = ["0", "1"];
+    const COLUMNAS_LLUVIA = 4;
+    const INTERVALO_LLUVIA_MS = 90;
+
+    function crearTexturaLluviaDeParedes() {
+      const lienzo = document.createElement("canvas");
+      lienzo.width = 48;
+      lienzo.height = 96;
+      const ctx = lienzo.getContext("2d");
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+      ctx.font = "11px monospace";
+      ctx.textBaseline = "top";
+
+      const anchoColumna = lienzo.width / COLUMNAS_LLUVIA;
+      const gotas = new Array(COLUMNAS_LLUVIA).fill(0).map(() => Math.random() * lienzo.height);
+
+      function avanzar() {
+        // No se borra del todo -- se oscurece un poco cada vez -- para que
+        // la cola de cada gota se vea desvanecer, como la lluvia clasica.
+        ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+        ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+        ctx.fillStyle = "#ffffff"; // blanco puro: el material lo tine de verde o cian
+        for (let i = 0; i < COLUMNAS_LLUVIA; i++) {
+          const caracter = CARACTERES_LLUVIA[Math.floor(Math.random() * CARACTERES_LLUVIA.length)];
+          ctx.fillText(caracter, i * anchoColumna + 2, gotas[i]);
+          gotas[i] += 10;
+          if (gotas[i] > lienzo.height + 20) gotas[i] = -Math.random() * 40;
+        }
+      }
+
+      avanzar();
+      const textura = new THREE.CanvasTexture(lienzo);
+      textura.wrapS = THREE.RepeatWrapping;
+      textura.wrapT = THREE.RepeatWrapping;
+      return { textura, avanzar };
+    }
+
+    // Se llenan cuando se arma el laberinto (una sola vez por partida) y el
+    // loop de animacion las va actualizando -- ver `animar()`.
+    const texturasLluviaActivas = [];
+
+    // Pared "pintada": relleno con la lluvia Matrix tiñendo el color del
+    // eje (no wireframe: con solo el contorno no se distinguia bien por
+    // donde se podia pasar) mas un borde brillante encima (EdgesGeometry)
+    // para que las esquinas se noten aunque el material no reciba luces.
+    function crearPared(geometria, material, materialBorde) {
       const grupo = new THREE.Group();
-      grupo.add(new THREE.Mesh(geometria, new THREE.MeshBasicMaterial({ color: colorRelleno })));
-      grupo.add(new THREE.LineSegments(
-        new THREE.EdgesGeometry(geometria),
-        new THREE.LineBasicMaterial({ color: colorBorde })
-      ));
+      grupo.add(new THREE.Mesh(geometria, material));
+      grupo.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometria), materialBorde));
       return grupo;
     }
 
-    function agregarParedHorizontal(grupo, colores, x, z) {
+    function agregarParedHorizontal(grupo, materiales, x, z) {
       const geometria = new THREE.BoxGeometry(CELDA, ALTURA_PARED, GROSOR_PARED);
-      const malla = crearPared(geometria, colores.relleno, colores.borde);
+      const malla = crearPared(geometria, materiales.relleno, materiales.borde);
       malla.position.set(x, ALTURA_PARED / 2, z);
       grupo.add(malla);
     }
 
-    function agregarParedVertical(grupo, colores, x, z) {
+    function agregarParedVertical(grupo, materiales, x, z) {
       const geometria = new THREE.BoxGeometry(GROSOR_PARED, ALTURA_PARED, CELDA);
-      const malla = crearPared(geometria, colores.relleno, colores.borde);
+      const malla = crearPared(geometria, materiales.relleno, materiales.borde);
       malla.position.set(x, ALTURA_PARED / 2, z);
       grupo.add(malla);
     }
@@ -225,11 +594,21 @@
       // este-oeste, y por eso costaba entender hacia donde doblar. Verde =
       // paredes que cruzan de este a oeste (topan al caminar norte/sur);
       // cian = paredes que cruzan de norte a sur (topan al caminar
-      // este/oeste) -- mismo criterio que usa el minimapa. Relleno solido
-      // (no wireframe): con solo el contorno no se distinguia bien por
-      // donde se podia pasar y por donde no.
-      const coloresArribaAbajo = { relleno: 0x0f4d2a, borde: 0x35e05a };
-      const coloresIzquierdaDerecha = { relleno: 0x0d3a4d, borde: 0x33d6ff };
+      // este/oeste) -- mismo criterio que usa el minimapa. El material usa
+      // la lluvia Matrix como textura y el color solo la tiñe -- sigue
+      // siendo solido/opaco (no wireframe), la lluvia es decorativa encima,
+      // no reemplaza la distincion de color que permite orientarse.
+      const lluvia = crearTexturaLluviaDeParedes();
+      texturasLluviaActivas.push(lluvia);
+
+      const materialesArribaAbajo = {
+        relleno: new THREE.MeshBasicMaterial({ map: lluvia.textura, color: 0x35e05a }),
+        borde: new THREE.LineBasicMaterial({ color: 0x35e05a }),
+      };
+      const materialesIzquierdaDerecha = {
+        relleno: new THREE.MeshBasicMaterial({ map: lluvia.textura, color: 0x33d6ff }),
+        borde: new THREE.LineBasicMaterial({ color: 0x33d6ff }),
+      };
 
       for (let fila = 0; fila < estado.filas; fila++) {
         for (let columna = 0; columna < estado.columnas; columna++) {
@@ -241,16 +620,16 @@
           // necesita un chequeo aparte, porque no tiene celda "dueña" del
           // otro lado.
           if (fila === 0 && celda.arriba) {
-            agregarParedHorizontal(grupo, coloresArribaAbajo, centro.x, centro.z - CELDA / 2);
+            agregarParedHorizontal(grupo, materialesArribaAbajo, centro.x, centro.z - CELDA / 2);
           }
           if (celda.abajo) {
-            agregarParedHorizontal(grupo, coloresArribaAbajo, centro.x, centro.z + CELDA / 2);
+            agregarParedHorizontal(grupo, materialesArribaAbajo, centro.x, centro.z + CELDA / 2);
           }
           if (columna === 0 && celda.izquierda) {
-            agregarParedVertical(grupo, coloresIzquierdaDerecha, centro.x - CELDA / 2, centro.z);
+            agregarParedVertical(grupo, materialesIzquierdaDerecha, centro.x - CELDA / 2, centro.z);
           }
           if (celda.derecha) {
-            agregarParedVertical(grupo, coloresIzquierdaDerecha, centro.x + CELDA / 2, centro.z);
+            agregarParedVertical(grupo, materialesIzquierdaDerecha, centro.x + CELDA / 2, centro.z);
           }
         }
       }
@@ -324,8 +703,19 @@
       overlayFin.classList.add("visible");
     }
 
+    let ultimoTickLluvia = 0;
+
     function animar() {
       requestAnimationFrame(animar);
+
+      const ahora = performance.now();
+      if (ahora - ultimoTickLluvia > INTERVALO_LLUVIA_MS) {
+        ultimoTickLluvia = ahora;
+        for (const lluvia of texturasLluviaActivas) {
+          lluvia.avanzar();
+          lluvia.textura.needsUpdate = true;
+        }
+      }
 
       if (animandoCamara) {
         const progreso = Math.min((performance.now() - inicioAnimacion) / DURACION_ANIMACION_MS, 1);
@@ -353,23 +743,58 @@
     ajustarTamano();
     animar();
 
+    // --- Pantalla completa (incluye la barra lateral: mapa y camara) ---
+    const layoutJuego = document.getElementById("layout-juego");
+    const btnFullscreen = document.getElementById("btn-fullscreen");
+
+    function estaEnFullscreen() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement);
+    }
+
+    function alternarFullscreen() {
+      if (estaEnFullscreen()) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      } else {
+        const solicitar = layoutJuego.requestFullscreen || layoutJuego.webkitRequestFullscreen;
+        if (solicitar) solicitar.call(layoutJuego);
+      }
+    }
+
+    btnFullscreen.addEventListener("click", alternarFullscreen);
+
+    function alCambiarFullscreen() {
+      btnFullscreen.textContent = estaEnFullscreen() ? "Salir de pantalla completa" : "Pantalla completa";
+      // El canvas necesita su nuevo tamaño real para que Three.js no lo deje
+      // renderizando con la resolucion/aspecto de antes de entrar/salir.
+      requestAnimationFrame(ajustarTamano);
+    }
+    document.addEventListener("fullscreenchange", alCambiarFullscreen);
+    document.addEventListener("webkitfullscreenchange", alCambiarFullscreen);
+
     // --- Conexion en tiempo real ---
     const socket = io(`${location.protocol}//${location.hostname}:5000/laberinto`, {
       auth: { token: sesion.token },
     });
 
-    socket.on("connect", () => { estadoEl.textContent = "Conectado. ¡Moveté con las flechas!"; });
+    socket.on("connect", () => {
+      estadoEl.textContent = "Conectado. ¡Moveté con las flechas!";
+      iniciarMusica();
+    });
     socket.on("connect_error", () => { estadoEl.textContent = "No se pudo autenticar la sesión."; });
     socket.on("disconnect", () => { estadoEl.textContent = "Desconectado."; });
     socket.on("estado", (estado) => actualizarEscena(estado));
 
     socket.on("ganaste", (datos) => {
+      detenerMusica();
+      detenerControlPorMano();
       sessionStorage.setItem("matrix_game_tiempo", datos.tiempo_segundos);
       mostrarFin("¡Ganaste!", `Tiempo: ${datos.tiempo_segundos.toFixed(1)}s`);
       setTimeout(() => { location.href = "../celebracion/index.html"; }, 1200);
     });
 
     socket.on("perdiste", () => {
+      detenerMusica();
+      detenerControlPorMano();
       mostrarFin("Game Over", "El enemigo te atrapó.");
     });
 
