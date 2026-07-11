@@ -7,4 +7,4 @@
 // que hay que completar esto con la URL pública del servicio backend una
 // vez creado, por ejemplo:
 //   window.MATRIX_GAME_BACKEND_URL = "https://matrix-game-backend-production.up.railway.app";
-window.MATRIX_GAME_BACKEND_URL = "";
+window.MATRIX_GAME_BACKEND_URL = "https://matrix-game-production.up.railway.app";
