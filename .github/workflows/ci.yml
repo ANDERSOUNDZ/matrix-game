@@ -32,6 +32,11 @@ jobs:
     env:
       DATABASE_URL: postgresql://matrix_game:ci-test-password@localhost:5432/matrix_game
       JWT_SECRET: ci-test-secret
+      # almacenamiento_disco.py crea esta carpeta al importarse -- en
+      # Docker local /app es escribible (WORKDIR de la imagen), pero en el
+      # runner de GitHub Actions no existe ni es escribible por el usuario
+      # sin privilegios que corre el job.
+      CARPETA_FOTOS: /tmp/matrix-game-fotos-ci
     steps:
       - uses: actions/checkout@v4
 
