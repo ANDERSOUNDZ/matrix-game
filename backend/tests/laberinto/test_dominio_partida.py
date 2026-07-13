@@ -11,7 +11,12 @@ frágiles ante cualquier cambio de implementación del generador.
 import random
 from collections import deque
 
-from modulos.laberinto.dominio.partida import DELTAS, POSICION_INICIAL, Partida, generar_laberinto
+from modulos.laberinto.dominio.partida import (
+    DELTAS,
+    POSICION_INICIAL,
+    Partida,
+    generar_laberinto,
+)
 
 
 def _todas_las_celdas_alcanzables(paredes):
@@ -123,7 +128,12 @@ def test_mover_una_partida_ya_perdida_no_hace_nada():
 
 
 def test_mover_enemigo_se_acerca_al_jugador_por_el_camino_mas_corto():
-    partida = Partida(id="1", usuario_id="1", filas=5, columnas=5, generador_aleatorio=random.Random(1))
+    # probabilidad_error_enemigo=0: se prueba la persecucion optima pura,
+    # sin que el "margen de error" (ver mas abajo) interfiera
+    partida = Partida(
+        id="1", usuario_id="1", filas=5, columnas=5,
+        generador_aleatorio=random.Random(1), probabilidad_error_enemigo=0,
+    )
     distancia_inicial = _distancia(partida.paredes, partida.enemigo, partida.jugador)
 
     partida.mover_enemigo()
@@ -133,7 +143,10 @@ def test_mover_enemigo_se_acerca_al_jugador_por_el_camino_mas_corto():
 
 
 def test_mover_enemigo_hasta_atrapar_al_jugador_marca_la_partida_como_perdida():
-    partida = Partida(id="1", usuario_id="1", filas=5, columnas=5, generador_aleatorio=random.Random(1))
+    partida = Partida(
+        id="1", usuario_id="1", filas=5, columnas=5,
+        generador_aleatorio=random.Random(1), probabilidad_error_enemigo=0,
+    )
     # en un laberinto perfecto hay un único camino: perseguir lo suficiente
     # siempre termina en captura
     for _ in range(partida.filas * partida.columnas):
@@ -143,6 +156,55 @@ def test_mover_enemigo_hasta_atrapar_al_jugador_marca_la_partida_como_perdida():
 
     assert partida.perdida is True
     assert partida.enemigo == partida.jugador
+
+
+def test_mover_enemigo_con_margen_de_error_a_veces_no_toma_el_camino_optimo():
+    # Con probabilidad_error_enemigo=1 el enemigo SIEMPRE "duda": nunca usa
+    # BFS, siempre camina a una celda transitable al azar. Se arma una
+    # celda con dos salidas (una es el camino optimo hacia el jugador, la
+    # otra no) y se confirma que, en muchos intentos, aparecen las dos --
+    # si solo apareciera la optima, el margen de error no estaria
+    # funcionando de verdad.
+    partida = Partida(
+        id="1", usuario_id="1", filas=3, columnas=3,
+        generador_aleatorio=random.Random(1), probabilidad_error_enemigo=1.0,
+    )
+    # Se fijan las 4 paredes de (1,1) explicitamente (no solo las que
+    # queremos abiertas): el laberinto ya vino generado por el seed, y
+    # dejar alguna sin tocar podria dejar una salida de mas sin que nos
+    # demos cuenta.
+    partida.paredes[1][1] = {"arriba": False, "abajo": True, "izquierda": True, "derecha": False}
+    partida.paredes[0][1]["abajo"] = False
+    partida.paredes[1][2]["izquierda"] = False
+    partida.jugador = (0, 1)  # el camino optimo desde (1,1) es "arriba"
+
+    resultados = set()
+    for semilla in range(30):
+        partida.enemigo = (1, 1)
+        partida.perdida = False
+        partida._generador_aleatorio = random.Random(semilla)
+        partida.mover_enemigo()
+        resultados.add(partida.enemigo)
+
+    assert resultados == {(0, 1), (1, 2)}
+
+
+def test_mover_enemigo_con_margen_de_error_solo_va_a_celdas_transitables():
+    # Aunque "se equivoque", nunca debe atravesar una pared.
+    partida = Partida(
+        id="1", usuario_id="1", filas=5, columnas=5,
+        generador_aleatorio=random.Random(1), probabilidad_error_enemigo=1.0,
+    )
+    fila, columna = partida.enemigo
+    vecinos_validos = {
+        (fila + df, columna + dc)
+        for direccion, (df, dc) in DELTAS.items()
+        if not partida.paredes[fila][columna][direccion]
+    }
+
+    partida.mover_enemigo()
+
+    assert partida.enemigo in vecinos_validos
 
 
 def test_mover_enemigo_en_partida_ya_ganada_no_hace_nada():

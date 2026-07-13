@@ -74,6 +74,21 @@
     }
     #overlay-fin button:hover { background: #1c4a26; }
 
+    #overlay-tutorial {
+      position: absolute; inset: 0; background: rgba(0, 0, 0, 0.92);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: .5rem; padding: 1.2rem; text-align: center;
+    }
+    #overlay-tutorial.oculto { display: none; }
+    #overlay-tutorial h2 { margin: 0 0 .4rem; text-transform: uppercase; letter-spacing: 2px; }
+    .tutorial-linea { margin: 0; font-size: 1.05rem; }
+    .tutorial-nota { margin: .6rem 0 0; font-size: .8rem; color: #9fd8b0; max-width: 420px; }
+    #overlay-tutorial button {
+      margin-top: .9rem; padding: .6rem 1.4rem; font-family: inherit; font-size: 1rem;
+      background: #123018; color: #7dffb0; border: 1px solid #35e05a; cursor: pointer;
+    }
+    #overlay-tutorial button:hover { background: #1c4a26; }
+
     #panel-mano button {
       width: 100%; padding: .5rem .4rem; font-family: inherit; font-size: .78rem;
       background: #123018; color: #7dffb0; border: 1px solid #35e05a; cursor: pointer;
@@ -93,7 +108,7 @@
   <p><a href="../dashboard/index.html">&larr; volver al dashboard</a></p>
   <h1>Laberinto</h1>
   <p>↑ avanza, ↓ retrocede, ←/→ girar. Un enemigo te persigue — ¡no dejes que te alcance!</p>
-  <div id="estado">Conectando...</div>
+  <div id="estado"></div>
   <button id="btn-fullscreen">Pantalla completa</button>
 
   <div class="layout-juego" id="layout-juego">
@@ -121,6 +136,22 @@
         <p id="detalle-fin"></p>
         <button id="btn-reintentar">Reintentar</button>
         <button id="btn-volver">Volver al dashboard</button>
+      </div>
+      <div id="overlay-tutorial">
+        <h2>Cómo jugar</h2>
+        <p class="tutorial-linea">↑ avanza hacia donde estás mirando</p>
+        <p class="tutorial-linea">↓ retrocede (sin girar la cámara)</p>
+        <p class="tutorial-linea">←/→ girás en el lugar, sin cambiar de celda</p>
+        <p class="tutorial-nota">
+          Un enemigo te persigue todo el tiempo, pero no es perfecto — a veces
+          duda y toma un camino equivocado. Si lo ves cerca en el mapa,
+          todavía tenés chance de escapar.
+        </p>
+        <p class="tutorial-nota">
+          También podés jugar con gestos de mano en vez del teclado (botón en
+          la barra lateral).
+        </p>
+        <button id="btn-empezar">Entendido, ¡a jugar!</button>
       </div>
     </div>
   </div>
@@ -161,6 +192,11 @@
       musicaFondo.pause();
       musicaFondo.currentTime = 0;
     }
+
+    // Se asigna recien cuando se cierra el tutorial (ver iniciarPartida()) --
+    // hasta entonces nada deberia intentar mover al jugador ni girar en
+    // serio, asi que las funciones que lo usan chequean que no sea null.
+    let socket = null;
 
     // --- Escena 3D (ver docs/decisiones/0003-laberinto-3d-con-enemigo.md) ---
     const CELDA = 4;
@@ -264,7 +300,7 @@
     };
 
     function dispararAccionDeZona(zona) {
-      if (overlayFin.classList.contains('visible')) return;
+      if (!socket || overlayFin.classList.contains('visible')) return;
       if (zona === 'arriba') socket.emit('mover', { direccion: direccionActual });
       else if (zona === 'abajo') socket.emit('mover', { direccion: OPUESTA[direccionActual] });
       else if (zona === 'izquierda') girar(-1);
@@ -426,6 +462,7 @@
     const canvas = document.getElementById("escena");
     const estadoEl = document.getElementById("estado");
     const overlayFin = document.getElementById("overlay-fin");
+    const overlayTutorial = document.getElementById("overlay-tutorial");
     const brujulaEl = document.getElementById("brujula");
     const minimapaCanvas = document.getElementById("minimapa");
     const minimapaCtx = minimapaCanvas.getContext("2d");
@@ -773,37 +810,52 @@
     document.addEventListener("webkitfullscreenchange", alCambiarFullscreen);
 
     // --- Conexion en tiempo real ---
-    // Reutiliza API_BASE (comun.js) en vez de armar su propia URL con
-    // :5000 fijo -- en produccion (Railway u otro hosting) el backend no
-    // esta en "mismo host, otro puerto", esta en un dominio aparte.
-    const socket = io(`${API_BASE}/laberinto`, {
-      auth: { token: sesion.token },
-    });
+    // Recien se conecta cuando se cierra el tutorial (no antes): el
+    // servidor crea la partida y arranca el cronometro y al enemigo apenas
+    // se conecta el socket, asi que arrancar la conexion mientras el
+    // jugador todavia esta leyendo los controles seria injusto.
+    function iniciarPartida() {
+      estadoEl.textContent = "Conectando...";
 
-    socket.on("connect", () => {
-      estadoEl.textContent = "Conectado. ¡Moveté con las flechas!";
-      iniciarMusica();
-    });
-    socket.on("connect_error", () => { estadoEl.textContent = "No se pudo autenticar la sesión."; });
-    socket.on("disconnect", () => { estadoEl.textContent = "Desconectado."; });
-    socket.on("estado", (estado) => actualizarEscena(estado));
+      // Reutiliza API_BASE (comun.js) en vez de armar su propia URL con
+      // :5000 fijo -- en produccion (Railway u otro hosting) el backend no
+      // esta en "mismo host, otro puerto", esta en un dominio aparte.
+      socket = io(`${API_BASE}/laberinto`, {
+        auth: { token: sesion.token },
+      });
 
-    socket.on("ganaste", (datos) => {
-      detenerMusica();
-      detenerControlPorMano();
-      sessionStorage.setItem("matrix_game_tiempo", datos.tiempo_segundos);
-      mostrarFin("¡Ganaste!", `Tiempo: ${datos.tiempo_segundos.toFixed(1)}s`);
-      setTimeout(() => { location.href = "../celebracion/index.html"; }, 1200);
-    });
+      socket.on("connect", () => {
+        estadoEl.textContent = "Conectado. ¡Moveté con las flechas!";
+        iniciarMusica();
+      });
+      socket.on("connect_error", () => { estadoEl.textContent = "No se pudo autenticar la sesión."; });
+      socket.on("disconnect", () => { estadoEl.textContent = "Desconectado."; });
+      socket.on("estado", (estado) => actualizarEscena(estado));
 
-    socket.on("perdiste", () => {
-      detenerMusica();
-      detenerControlPorMano();
-      mostrarFin("Game Over", "El enemigo te atrapó.");
+      socket.on("ganaste", (datos) => {
+        detenerMusica();
+        detenerControlPorMano();
+        sessionStorage.setItem("matrix_game_tiempo", datos.tiempo_segundos);
+        mostrarFin("¡Ganaste!", `Tiempo: ${datos.tiempo_segundos.toFixed(1)}s`);
+        setTimeout(() => { location.href = "../celebracion/index.html"; }, 1200);
+      });
+
+      socket.on("perdiste", () => {
+        detenerMusica();
+        detenerControlPorMano();
+        mostrarFin("Game Over", "El enemigo te atrapó.");
+      });
+    }
+
+    document.getElementById("btn-empezar").addEventListener("click", () => {
+      overlayTutorial.classList.add("oculto");
+      iniciarPartida();
     });
 
     document.addEventListener("keydown", (evento) => {
       if (overlayFin.classList.contains("visible")) return;
+      if (!overlayTutorial.classList.contains("oculto")) return;
+      if (!socket) return;
 
       if (evento.key === "ArrowUp") {
         evento.preventDefault();

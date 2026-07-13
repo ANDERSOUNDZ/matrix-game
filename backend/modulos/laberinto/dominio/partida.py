@@ -19,6 +19,12 @@ FILAS_POR_DEFECTO = 10
 COLUMNAS_POR_DEFECTO = 10
 POSICION_INICIAL = (0, 0)
 
+# Fraccion de los pasos en que el enemigo "duda" y camina a una celda
+# transitable al azar en vez de la optima (BFS). Sin esto, el enemigo nunca
+# se equivoca -- perseguir se siente injusto en vez de tenso, y no le deja
+# al jugador ningun margen para escapar de un susto cercano.
+PROBABILIDAD_ERROR_ENEMIGO = 0.15
+
 DELTAS = {
     "arriba": (-1, 0),
     "abajo": (1, 0),
@@ -129,6 +135,18 @@ def _siguiente_paso_bfs(paredes, origen, destino):
     return camino[1] if len(camino) > 1 else None
 
 
+def _vecinos_transitables(paredes, celda):
+    """Celdas adyacentes a `celda` sin pared en el medio -- las opciones
+    reales de movimiento desde ahi, usadas para el paso "al azar" cuando el
+    enemigo se equivoca."""
+    fila, columna = celda
+    return [
+        (fila + df, columna + dc)
+        for direccion, (df, dc) in DELTAS.items()
+        if not paredes[fila][columna][direccion]
+    ]
+
+
 class Partida:
     """Estado y reglas de negocio de una partida de laberinto: el grid con
     paredes, la posición del jugador, la del enemigo, y la de la meta."""
@@ -140,12 +158,19 @@ class Partida:
         filas=FILAS_POR_DEFECTO,
         columnas=COLUMNAS_POR_DEFECTO,
         generador_aleatorio=None,
+        probabilidad_error_enemigo=None,
     ):
         self.id = id
         self.usuario_id = usuario_id
         self.filas = filas
         self.columnas = columnas
-        self.paredes = generar_laberinto(filas, columnas, generador_aleatorio)
+        self._generador_aleatorio = generador_aleatorio or random
+        self._probabilidad_error_enemigo = (
+            PROBABILIDAD_ERROR_ENEMIGO
+            if probabilidad_error_enemigo is None
+            else probabilidad_error_enemigo
+        )
+        self.paredes = generar_laberinto(filas, columnas, self._generador_aleatorio)
         self.jugador = POSICION_INICIAL
         self.meta = (filas - 1, columnas - 1)
         self.enemigo = _celda_mas_lejana(self.paredes, self.jugador)
@@ -185,13 +210,21 @@ class Partida:
         return True
 
     def mover_enemigo(self):
-        """Un paso del enemigo persiguiendo al jugador por el camino más
-        corto real (BFS, recalculado cada vez porque el jugador se mueve).
-        Detecta si con ese paso atrapó al jugador."""
+        """Un paso del enemigo persiguiendo al jugador. La mayoría de las
+        veces toma el camino más corto real (BFS, recalculado cada vez
+        porque el jugador se mueve); con `_probabilidad_error_enemigo` en
+        vez de eso "duda" y camina a una celda transitable al azar --
+        le da al jugador un margen real de escape en vez de perseguir
+        siempre perfecto. Detecta si con ese paso atrapó al jugador."""
         if self.ganada or self.perdida:
             return
 
-        siguiente = _siguiente_paso_bfs(self.paredes, self.enemigo, self.jugador)
+        if self._generador_aleatorio.random() < self._probabilidad_error_enemigo:
+            vecinos = _vecinos_transitables(self.paredes, self.enemigo)
+            siguiente = self._generador_aleatorio.choice(vecinos) if vecinos else None
+        else:
+            siguiente = _siguiente_paso_bfs(self.paredes, self.enemigo, self.jugador)
+
         if siguiente is not None:
             self.enemigo = siguiente
 

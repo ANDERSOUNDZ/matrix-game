@@ -68,6 +68,9 @@ def test_mover_enemigo_publica_partida_perdida_al_atrapar_al_jugador():
     partida.enemigo = (0, 1)
     partida.paredes[0][0]["derecha"] = False
     partida.paredes[0][1]["izquierda"] = False
+    # sin esto, el margen de error del enemigo (ver dominio/partida.py) podria
+    # hacer que "dude" y el test saliera intermitente
+    partida._probabilidad_error_enemigo = 0
     repositorio.guardar(partida)
 
     recibidos = []
