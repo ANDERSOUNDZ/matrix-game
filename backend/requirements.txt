@@ -8,3 +8,9 @@ alembic>=1.13.0
 # Para el modulo autenticacion (Dev 1): hash de password ya lo trae
 # werkzeug (dependencia de flask); esto es para emitir/verificar JWT.
 pyjwt>=2.8.0
+
+# Matrix Vision (Dev 3, modulo celebracion): procesamiento de camara en el
+# backend Python para el filtro de retrato Matrix en tiempo real.
+numpy>=1.26.0
+opencv-python-headless>=4.10.0
+mediapipe>=0.10.14

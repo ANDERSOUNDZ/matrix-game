@@ -2,8 +2,22 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Dependencias de sistema para opencv/mediapipe (modulo celebracion, Matrix
+# Vision) -- necesarias aun con la variante "headless" de opencv.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglib2.0-0 \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# mediapipe arrastra una variante de opencv que choca con
+# opencv-python-headless (error de import/GL en runtime sin display). Se
+# fuerza a que quede solo la headless, en la version que se probo estable.
+RUN pip uninstall -y opencv-python opencv-contrib-python \
+    opencv-contrib-python-headless opencv-python-headless || true \
+    && pip install --no-cache-dir opencv-python-headless==4.12.0.88
 
 COPY . .
 

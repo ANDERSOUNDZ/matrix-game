@@ -18,6 +18,7 @@ from flask_socketio import SocketIO
 from modulos.autenticacion.adaptadores.entrada.http import autenticacion_bp
 from modulos.autenticacion.adaptadores.entrada.jwt_sesion import JWTVerificadorDeSesion
 from modulos.celebracion.adaptadores.entrada.http import celebracion_bp
+from modulos.celebracion.adaptadores.entrada.websocket import registrar_namespace_celebracion_matrix
 from modulos.celebracion.aplicacion.casos_de_uso import registrar_suscriptores
 from modulos.laberinto.adaptadores.entrada.websocket import registrar_namespace_laberinto
 
@@ -59,6 +60,7 @@ def crear_app():
     # --- Adaptador de entrada websocket (Socket.IO) ---
     socketio = SocketIO(app, cors_allowed_origins="*")
     registrar_namespace_laberinto(socketio, verificador_de_sesion)
+    registrar_namespace_celebracion_matrix(socketio, verificador_de_sesion)
 
     # --- Conexion entre modulos a traves del bus de eventos compartido ---
     # Ningun modulo importa el dominio de otro directamente: `celebracion`
