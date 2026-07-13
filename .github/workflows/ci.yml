@@ -48,7 +48,7 @@ jobs:
       # libs de sistema aun en su variante "headless" -- mismo motivo que el
       # Dockerfile del backend las instala.
       - name: Dependencias de sistema (opencv/mediapipe)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libglib2.0-0 libgomp1
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libglib2.0-0 libgomp1 libgles2 libegl1
 
       - name: Instalar dependencias
         working-directory: backend

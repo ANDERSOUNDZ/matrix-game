@@ -3,10 +3,16 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Dependencias de sistema para opencv/mediapipe (modulo celebracion, Matrix
-# Vision) -- necesarias aun con la variante "headless" de opencv.
+# Vision) -- necesarias aun con la variante "headless" de opencv. mediapipe
+# referencia simbolos de OpenGL ES/EGL al crear el FaceLandmarker (incluso
+# en CPU), aunque no haya display real -- sin libgles2/libegl1 falla recien
+# al procesar el primer frame, no al arrancar (el detector se crea recien
+# ahi), asi que un arranque limpio no alcanza para confirmar que esto anda.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libgomp1 \
+    libgles2 \
+    libegl1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
