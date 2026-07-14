@@ -16,8 +16,8 @@ class CrearPartidaUseCase:
     def __init__(self, repositorio):
         self._repositorio = repositorio
 
-    def ejecutar(self, usuario_id):
-        partida = Partida(id=usuario_id, usuario_id=usuario_id)
+    def ejecutar(self, conexion_id, usuario_id):
+        partida = Partida(id=conexion_id, usuario_id=usuario_id)
         self._repositorio.guardar(partida)
         return partida
 
@@ -26,10 +26,10 @@ class MoverJugadorUseCase:
     def __init__(self, repositorio):
         self._repositorio = repositorio
 
-    def ejecutar(self, usuario_id, direccion):
-        partida = self._repositorio.obtener_por_usuario(usuario_id)
+    def ejecutar(self, conexion_id, usuario_id, direccion):
+        partida = self._repositorio.obtener_por_conexion(conexion_id)
         if partida is None:
-            partida = Partida(id=usuario_id, usuario_id=usuario_id)
+            partida = Partida(id=conexion_id, usuario_id=usuario_id)
 
         partida.mover(direccion)
         self._repositorio.guardar(partida)
@@ -59,8 +59,8 @@ class MoverEnemigoUseCase:
     def __init__(self, repositorio):
         self._repositorio = repositorio
 
-    def ejecutar(self, usuario_id):
-        partida = self._repositorio.obtener_por_usuario(usuario_id)
+    def ejecutar(self, conexion_id):
+        partida = self._repositorio.obtener_por_conexion(conexion_id)
         if partida is None:
             return None
 
@@ -69,7 +69,7 @@ class MoverEnemigoUseCase:
 
         if partida.perdida:
             event_bus.publicar(
-                PartidaPerdida(partida_id=str(partida.id), usuario_id=str(usuario_id))
+                PartidaPerdida(partida_id=str(partida.id), usuario_id=str(partida.usuario_id))
             )
 
         return partida

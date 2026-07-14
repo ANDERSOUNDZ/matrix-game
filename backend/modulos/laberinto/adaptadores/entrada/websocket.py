@@ -56,13 +56,17 @@ class LaberintoNamespace(Namespace):
         sid = request.sid
         session["usuario_id"] = usuario_id
 
-        partida = _crear_partida_use_case.ejecutar(usuario_id)
+        # conexion_id=sid (no usuario_id): si la misma cuenta tiene otra
+        # conexion activa (otra pestaña, otra computadora), cada una necesita
+        # su propio laberinto e hilo de enemigo -- ver
+        # adaptadores/persistencia/memoria.py.
+        partida = _crear_partida_use_case.ejecutar(conexion_id=sid, usuario_id=usuario_id)
         self.emit("estado", partida.a_dict())
 
         _conexiones_activas[sid] = True
-        self._socketio.start_background_task(self._tick_enemigo, sid, usuario_id)
+        self._socketio.start_background_task(self._tick_enemigo, sid)
 
-    def _tick_enemigo(self, sid, usuario_id):
+    def _tick_enemigo(self, sid):
         """Corre en un hilo de fondo (uno por conexion). No tiene contexto
         de request, por eso usa `socketio.emit(..., to=sid)` en vez de
         `self.emit(...)` -- ver GUIA-ARQUITECTURA-Y-CALIDAD.md, seccion 2.5,
@@ -73,7 +77,7 @@ class LaberintoNamespace(Namespace):
             if not _conexiones_activas.get(sid):
                 break
 
-            partida = _mover_enemigo_use_case.ejecutar(usuario_id)
+            partida = _mover_enemigo_use_case.ejecutar(conexion_id=sid)
             if partida is None:
                 break
 
@@ -92,7 +96,9 @@ class LaberintoNamespace(Namespace):
             return
 
         direccion = (datos or {}).get("direccion")
-        partida = _mover_jugador_use_case.ejecutar(usuario_id, direccion)
+        partida = _mover_jugador_use_case.ejecutar(
+            conexion_id=request.sid, usuario_id=usuario_id, direccion=direccion
+        )
         self.emit("estado", partida.a_dict())
 
         if partida.ganada:
