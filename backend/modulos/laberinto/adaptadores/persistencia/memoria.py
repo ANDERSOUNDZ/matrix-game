@@ -26,3 +26,6 @@ class PartidaRepositoryEnMemoria:
 
     def guardar(self, partida: Partida) -> None:
         self._partidas_por_conexion[partida.id] = partida
+
+    def eliminar(self, conexion_id) -> None:
+        self._partidas_por_conexion.pop(conexion_id, None)

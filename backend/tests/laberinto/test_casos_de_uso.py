@@ -135,3 +135,14 @@ def test_misma_cuenta_con_dos_conexiones_no_interfiere_entre_si():
 
     # Mover la partida de sid-1 no debe afectar en nada a la de sid-2.
     assert repositorio.obtener_por_conexion("sid-2").jugador == partida_2.jugador
+
+
+def test_eliminar_libera_la_partida_de_esa_conexion():
+    """Sin esto, cada conexion que alguna vez jugo queda para siempre en el
+    repositorio (ver adaptadores/entrada/websocket.py, on_disconnect)."""
+    repositorio = PartidaRepositoryEnMemoria()
+    CrearPartidaUseCase(repositorio).ejecutar(conexion_id="sid-1", usuario_id="usuario-1")
+
+    repositorio.eliminar("sid-1")
+
+    assert repositorio.obtener_por_conexion("sid-1") is None

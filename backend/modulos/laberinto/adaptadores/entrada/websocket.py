@@ -110,6 +110,11 @@ class LaberintoNamespace(Namespace):
 
     def on_disconnect(self):
         _conexiones_activas.pop(request.sid, None)
+        # Sin esto, cada conexion que alguna vez jugo queda para siempre en
+        # el repositorio en memoria -- antes se indexaba por usuario_id (una
+        # entrada por cuenta, acotado), ahora es por conexion, asi que sin
+        # esta limpieza crece sin limite con cada partida jugada.
+        _repositorio.eliminar(request.sid)
 
 
 def registrar_namespace_laberinto(socketio, verificador_de_sesion) -> None:
