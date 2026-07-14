@@ -29,11 +29,17 @@ COPY . .
 
 EXPOSE 5000
 
-# TODO: antes de un despliegue real, cambiar a un servidor WSGI de
-# produccion (gunicorn + eventlet/gevent) en vez del servidor de
-# desarrollo de Flask que usa compartido/app.py por ahora.
-#
 # Corre las migraciones de los 3 modulos antes de arrancar -- es seguro
 # ejecutarlo en cada arranque/deploy: Alembic solo aplica lo que falte
 # (upgrade a head), no hace nada si ya esta al dia.
-CMD python scripts/migrar_todo.py && python -m compartido.app
+#
+# gunicorn con worker eventlet en vez del servidor de desarrollo de Flask:
+# ese servidor no sostiene un upgrade real a WebSocket (el sintoma real fue
+# el laberinto quedando con pantalla negra -- el socket nunca terminaba de
+# conectar, asi que el evento "estado" que dispara el primer render nunca
+# llegaba). Un solo worker (-w 1): el estado de las partidas activas vive
+# en memoria del proceso (PartidaRepositoryEnMemoria) -- con mas de un
+# worker cada uno tendria su propia copia. Si se necesita escalar a mas de
+# una instancia, hace falta antes un almacen compartido (Redis) para el
+# estado de partidas y para el message queue de Socket.IO entre workers.
+CMD python scripts/migrar_todo.py && gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${PORT:-${FLASK_PORT:-5000}} compartido.app:app

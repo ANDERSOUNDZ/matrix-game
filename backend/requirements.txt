@@ -5,6 +5,17 @@ sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.0
 alembic>=1.13.0
 
+# Servidor WSGI de produccion para Socket.IO: sin esto, Flask-SocketIO cae
+# en modo "threading" sobre el servidor de desarrollo de Flask, que no
+# soporta upgrade real a WebSocket -- el cliente se queda pidiendo
+# conectarse, el navegador cae a polling y el servidor le responde 400 al
+# reusar el sid. Con eventlet instalado y monkey-parcheado (ver
+# compartido/app.py), Flask-SocketIO pasa a async_mode="eventlet" solo, con
+# soporte real de WebSocket. gunicorn es el que lo sirve en produccion
+# (ver Dockerfile).
+eventlet>=0.36.1
+gunicorn>=21.2.0
+
 # Para el modulo autenticacion (Dev 1): hash de password ya lo trae
 # werkzeug (dependencia de flask); esto es para emitir/verificar JWT.
 pyjwt>=2.8.0

@@ -9,18 +9,32 @@ expone al menos un endpoint de salud (o un namespace de socket.io que
 responde) antes de que nadie le agregue reglas de negocio reales.
 """
 
-import os
+# Tiene que ser el primer import del proceso, antes que cualquier otro
+# modulo (incluyendo los del proyecto) toque `socket`/`threading`: eventlet
+# reemplaza esas piezas de la libreria estandar por versiones cooperativas.
+# Sin esto, Flask-SocketIO cae en modo "threading" sobre el servidor de
+# desarrollo de Flask, que no soporta upgrade real a WebSocket -- se veia
+# como el juego conectando pero sin recibir nunca el primer estado (el
+# laberinto nunca se dibujaba). Con eventlet parcheado, Flask-SocketIO usa
+# async_mode="eventlet" solo y WebSocket funciona de verdad.
+import eventlet
 
-from flask import Flask, jsonify
-from flask_cors import CORS
-from flask_socketio import SocketIO
+eventlet.monkey_patch()
 
-from modulos.autenticacion.adaptadores.entrada.http import autenticacion_bp
-from modulos.autenticacion.adaptadores.entrada.jwt_sesion import JWTVerificadorDeSesion
-from modulos.celebracion.adaptadores.entrada.http import celebracion_bp
-from modulos.celebracion.adaptadores.entrada.websocket import registrar_namespace_celebracion_matrix
-from modulos.celebracion.aplicacion.casos_de_uso import registrar_suscriptores
-from modulos.laberinto.adaptadores.entrada.websocket import registrar_namespace_laberinto
+import os  # noqa: E402
+
+from flask import Flask, jsonify  # noqa: E402
+from flask_cors import CORS  # noqa: E402
+from flask_socketio import SocketIO  # noqa: E402
+
+from modulos.autenticacion.adaptadores.entrada.http import autenticacion_bp  # noqa: E402
+from modulos.autenticacion.adaptadores.entrada.jwt_sesion import JWTVerificadorDeSesion  # noqa: E402
+from modulos.celebracion.adaptadores.entrada.http import celebracion_bp  # noqa: E402
+from modulos.celebracion.adaptadores.entrada.websocket import (  # noqa: E402
+    registrar_namespace_celebracion_matrix,
+)
+from modulos.celebracion.aplicacion.casos_de_uso import registrar_suscriptores  # noqa: E402
+from modulos.laberinto.adaptadores.entrada.websocket import registrar_namespace_laberinto  # noqa: E402
 
 
 def crear_app():
@@ -81,7 +95,11 @@ if __name__ == "__main__":
     # local via .env.
     port = int(os.environ.get("PORT") or os.environ.get("FLASK_PORT", "5000"))
     print(f"\n[SERVER] Abre http://localhost:{port} en tu navegador")
-    # allow_unsafe_werkzeug: el servidor de desarrollo de Flask alcanza para
-    # este cascaron. Antes de un despliegue real, cambiar a un servidor WSGI
-    # de produccion (gunicorn + eventlet/gevent) -- ver TODO en el Dockerfile.
+    # Solo para correr el modulo suelto (`python -m compartido.app`) sin
+    # gunicorn -- el Dockerfile (y por lo tanto Railway) usa gunicorn con
+    # worker eventlet en su lugar. Con eventlet monkey-parcheado (import al
+    # tope de este archivo), Flask-SocketIO detecta async_mode="eventlet" y
+    # socketio.run() ya sirve con el servidor de eventlet en vez del de
+    # desarrollo de Flask -- allow_unsafe_werkzeug queda de mas aca, pero no
+    # molesta si algun dia se corre sin eventlet disponible.
     socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True)

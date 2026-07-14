@@ -3,7 +3,7 @@
 import base64
 import logging
 
-from flask import request, session
+from flask import session
 from flask_socketio import Namespace, disconnect
 
 from modulos.celebracion.adaptadores.salida.procesador_matrix_mediapipe import (
