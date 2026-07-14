@@ -14,7 +14,12 @@ alembic>=1.13.0
 # soporte real de WebSocket. gunicorn es el que lo sirve en produccion
 # (ver Dockerfile).
 eventlet>=0.36.1
-gunicorn>=21.2.0
+# gunicorn deprecó el worker "eventlet" en la serie 25.x y lo elimino
+# directamente en la 26.0 (confirmado revisando gunicorn/workers/__init__.py
+# en GitHub para varias versiones) -- sin este techo, pip instala la ultima
+# release, que ya no lo tiene, y el arranque queda en crash loop
+# ("Entry point ('gunicorn.workers', 'eventlet') not found").
+gunicorn>=21.2.0,<26
 
 # Para el modulo autenticacion (Dev 1): hash de password ya lo trae
 # werkzeug (dependencia de flask); esto es para emitir/verificar JWT.
