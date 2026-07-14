@@ -1,5 +1,9 @@
 """Adaptador de salida: implementa UsuarioRepository contra Postgres
 (esquema `autenticacion`, tabla `usuarios`, creada por la migración 0001).
+
+También implementa el puerto compartido `ConsultaUsuarios`
+(compartido/puertos.py) -- misma tabla, otra consulta, no amerita una clase
+aparte.
 """
 
 from sqlalchemy import text
@@ -36,6 +40,18 @@ class UsuarioRepositoryPostgres:
         if fila is None:
             return None
         return Usuario(id=fila.id, email=fila.email, password_hash=fila.password_hash, nombre=fila.nombre)
+
+    def nombres_por_id(self, ids):
+        """Implementa compartido.puertos.ConsultaUsuarios."""
+        if not ids:
+            return {}
+        ids_enteros = [int(id_) for id_ in ids]
+        with engine.connect() as conexion:
+            filas = conexion.execute(
+                text("SELECT id, nombre FROM autenticacion.usuarios WHERE id = ANY(:ids)"),
+                {"ids": ids_enteros},
+            ).fetchall()
+        return {str(fila.id): fila.nombre for fila in filas}
 
     def guardar(self, usuario):
         with engine.begin() as conexion:

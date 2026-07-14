@@ -23,8 +23,9 @@ class CrearPartidaUseCase:
 
 
 class MoverJugadorUseCase:
-    def __init__(self, repositorio):
+    def __init__(self, repositorio, repositorio_puntajes):
         self._repositorio = repositorio
+        self._repositorio_puntajes = repositorio_puntajes
 
     def ejecutar(self, conexion_id, usuario_id, direccion):
         partida = self._repositorio.obtener_por_conexion(conexion_id)
@@ -38,6 +39,7 @@ class MoverJugadorUseCase:
 
     def _publicar_resultado_si_termino(self, partida, usuario_id):
         if partida.ganada:
+            self._repositorio_puntajes.guardar_si_es_mejor(usuario_id, partida.tiempo_segundos)
             event_bus.publicar(
                 PartidaGanada(
                     partida_id=str(partida.id),
@@ -73,3 +75,21 @@ class MoverEnemigoUseCase:
             )
 
         return partida
+
+
+class ObtenerTablaDePosicionesUseCase:
+    """Los mejores tiempos, uno por jugador, con su nombre resuelto vía el
+    puerto compartido `ConsultaUsuarios` (implementado por `autenticacion`,
+    ver compartido/puertos.py) -- este módulo no importa su dominio."""
+
+    def __init__(self, repositorio_puntajes, consulta_usuarios):
+        self._repositorio_puntajes = repositorio_puntajes
+        self._consulta_usuarios = consulta_usuarios
+
+    def ejecutar(self, limite=10):
+        mejores = self._repositorio_puntajes.mejores(limite)
+        nombres = self._consulta_usuarios.nombres_por_id([usuario_id for usuario_id, _ in mejores])
+        return [
+            {"nombre": nombres.get(usuario_id, "Jugador"), "tiempo_segundos": tiempo_segundos}
+            for usuario_id, tiempo_segundos in mejores
+        ]

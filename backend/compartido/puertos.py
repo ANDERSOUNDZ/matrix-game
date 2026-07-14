@@ -22,3 +22,17 @@ class VerificadorDeSesion(Protocol):
     def usuario_id_desde_token(self, token: str) -> Optional[str]:
         """Devuelve el id del usuario si el token es valido, o None si no lo es."""
         ...
+
+
+class ConsultaUsuarios(Protocol):
+    """Lo que necesita cualquier modulo para resolver el nombre de un usuario
+    a partir de su id, sin conocer los detalles de como se persiste.
+
+    Implementado por el modulo `autenticacion`. Usado por `laberinto` para
+    mostrar nombres en la tabla de posiciones sin importar el dominio de
+    `autenticacion` directamente (mismo patron que `VerificadorDeSesion`).
+    """
+
+    def nombres_por_id(self, ids: list) -> dict:
+        """Devuelve un mapeo {id: nombre} para los ids dados que existan."""
+        ...

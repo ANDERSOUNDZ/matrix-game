@@ -29,11 +29,15 @@ from flask_socketio import SocketIO  # noqa: E402
 
 from modulos.autenticacion.adaptadores.entrada.http import autenticacion_bp  # noqa: E402
 from modulos.autenticacion.adaptadores.entrada.jwt_sesion import JWTVerificadorDeSesion  # noqa: E402
+from modulos.autenticacion.adaptadores.persistencia.postgres import (  # noqa: E402
+    UsuarioRepositoryPostgres,
+)
 from modulos.celebracion.adaptadores.entrada.http import celebracion_bp  # noqa: E402
 from modulos.celebracion.adaptadores.entrada.websocket import (  # noqa: E402
     registrar_namespace_celebracion_matrix,
 )
 from modulos.celebracion.aplicacion.casos_de_uso import registrar_suscriptores  # noqa: E402
+from modulos.laberinto.adaptadores.entrada.http import crear_blueprint_laberinto  # noqa: E402
 from modulos.laberinto.adaptadores.entrada.websocket import registrar_namespace_laberinto  # noqa: E402
 
 
@@ -51,6 +55,11 @@ def crear_app():
     verificador_de_sesion = JWTVerificadorDeSesion()
     app.config["VERIFICADOR_DE_SESION"] = verificador_de_sesion
 
+    # --- Puerto compartido: ConsultaUsuarios ---
+    # (compartido/puertos.py). `laberinto` lo usa para resolver nombres en
+    # la tabla de posiciones sin importar el dominio de `autenticacion`.
+    consulta_usuarios = UsuarioRepositoryPostgres()
+
     # --- CORS ---
     # El frontend (:8090) y el backend (:5000) son orígenes distintos (ver
     # ADR 0002, decisión sobre el token JWT vía Authorization header en vez
@@ -63,6 +72,7 @@ def crear_app():
     # --- Adaptadores de entrada HTTP de cada modulo ---
     app.register_blueprint(autenticacion_bp)
     app.register_blueprint(celebracion_bp)
+    app.register_blueprint(crear_blueprint_laberinto(verificador_de_sesion, consulta_usuarios))
 
     @app.route("/")
     def raiz():

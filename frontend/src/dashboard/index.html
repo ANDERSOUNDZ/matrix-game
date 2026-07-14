@@ -91,7 +91,7 @@
 
     .retro-main {
       display: grid;
-      grid-template-columns: 260px 1fr;
+      grid-template-columns: 260px 1fr 260px;
       flex: 1;
       min-height: 0;
       overflow: hidden;
@@ -194,6 +194,48 @@
       50% { opacity: 0; }
     }
 
+    .retro-posiciones {
+      border-left: 1px solid var(--retro-green);
+      padding: 18px;
+      overflow-y: auto;
+    }
+
+    .retro-posiciones h2 {
+      margin: 0 0 14px;
+      font-size: .9rem;
+      text-transform: uppercase;
+      color: var(--retro-gray);
+    }
+
+    .tabla-posiciones {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+    }
+
+    .tabla-posiciones td {
+      padding: 4px 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tabla-posiciones td:first-child {
+      color: var(--retro-gray);
+      width: 1.6em;
+    }
+
+    .tabla-posiciones td:last-child {
+      text-align: right;
+      color: var(--retro-gray);
+    }
+
+    .posiciones-mensaje {
+      color: var(--retro-gray);
+      font-size: .85rem;
+      margin: 0;
+    }
+
     @media (max-width: 640px) {
       .retro-dashboard {
         height: auto;
@@ -210,6 +252,11 @@
       .retro-menu {
         border-right: none;
         border-bottom: 1px solid var(--retro-green);
+      }
+
+      .retro-posiciones {
+        border-left: none;
+        border-top: 1px solid var(--retro-green);
       }
     }
   </style>
@@ -253,6 +300,14 @@
           Sistema listo.<span class="retro-cursor"></span>
         </p>
       </section>
+
+      <aside class="retro-posiciones">
+        <h2>Tabla de Posiciones</h2>
+        <p class="posiciones-mensaje" id="posiciones-mensaje">Cargando...</p>
+        <table class="tabla-posiciones" id="tabla-posiciones" style="display: none;">
+          <tbody id="tabla-posiciones-cuerpo"></tbody>
+        </table>
+      </aside>
     </div>
 
     <div class="retro-footer">
@@ -272,6 +327,50 @@
       document.getElementById("saludo").textContent = `Hola, ${nombre}`;
       document.getElementById("info-usuario").textContent = `USER: ${nombre.toUpperCase()}`;
       mostrarEfectoDeEntradaSiCorresponde();
+      cargarTablaDePosiciones();
+    }
+
+    async function cargarTablaDePosiciones() {
+      const mensaje = document.getElementById("posiciones-mensaje");
+      const tabla = document.getElementById("tabla-posiciones");
+      const cuerpo = document.getElementById("tabla-posiciones-cuerpo");
+
+      try {
+        const respuesta = await fetch(`${API_BASE}/laberinto/tabla-posiciones`, {
+          headers: { Authorization: `Bearer ${sesion.token}` },
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok || !datos.ok) throw new Error(datos.error || "error desconocido");
+
+        if (datos.posiciones.length === 0) {
+          mensaje.textContent = "Todavía nadie ganó una partida.";
+          return;
+        }
+
+        cuerpo.innerHTML = datos.posiciones
+          .map(
+            (fila, indice) => `
+              <tr>
+                <td>${indice + 1}.</td>
+                <td>${escaparHtml(fila.nombre)}</td>
+                <td>${fila.tiempo_segundos.toFixed(1)}s</td>
+              </tr>
+            `
+          )
+          .join("");
+        mensaje.style.display = "none";
+        tabla.style.display = "table";
+      } catch (error) {
+        mensaje.textContent = "No se pudo cargar la tabla de posiciones.";
+      }
+    }
+
+    // Los nombres los eligen los propios jugadores al registrarse -- no hay
+    // que confiar en que no traigan HTML/JS antes de insertarlos en el DOM.
+    function escaparHtml(texto) {
+      const contenedor = document.createElement("div");
+      contenedor.textContent = texto;
+      return contenedor.innerHTML;
     }
 
     function mostrarEfectoDeEntradaSiCorresponde() {

@@ -19,6 +19,7 @@ from flask import request, session
 from flask_socketio import Namespace, disconnect
 
 from modulos.laberinto.adaptadores.persistencia.memoria import PartidaRepositoryEnMemoria
+from modulos.laberinto.adaptadores.persistencia.postgres_puntajes import PuntajeRepositoryPostgres
 from modulos.laberinto.aplicacion.casos_de_uso import (
     CrearPartidaUseCase,
     MoverEnemigoUseCase,
@@ -26,8 +27,9 @@ from modulos.laberinto.aplicacion.casos_de_uso import (
 )
 
 _repositorio = PartidaRepositoryEnMemoria()
+_repositorio_puntajes = PuntajeRepositoryPostgres()
 _crear_partida_use_case = CrearPartidaUseCase(_repositorio)
-_mover_jugador_use_case = MoverJugadorUseCase(_repositorio)
+_mover_jugador_use_case = MoverJugadorUseCase(_repositorio, _repositorio_puntajes)
 _mover_enemigo_use_case = MoverEnemigoUseCase(_repositorio)
 
 INTERVALO_ENEMIGO_SEGUNDOS = 1.1
