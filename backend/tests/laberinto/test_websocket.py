@@ -50,3 +50,31 @@ def test_namespace_rechaza_conexion_con_token_invalido():
     cliente = socketio.test_client(app, namespace="/laberinto", auth={"token": "invalido"})
 
     assert cliente.is_connected(namespace="/laberinto") is False
+
+
+def test_mover_no_transmite_el_estado_a_otras_conexiones():
+    """Regresion: self.emit() en una clase Namespace de Flask-SocketIO NO
+    manda solo al que disparo el evento por defecto -- sin `to=sid` explicito
+    se transmite a TODOS los conectados al namespace. Con dos conexiones (aca
+    la misma cuenta, pero aplica igual a cuentas distintas) activas a la vez,
+    el jugador de una veia su pantalla sobreescrita con el estado de la otra
+    cada vez que esa otra se movia. Ver adaptadores/entrada/websocket.py.
+    """
+    app, socketio = _crear_app_y_socketio()
+
+    cliente_a = socketio.test_client(app, namespace="/laberinto", auth={"token": "token-valido"})
+    cliente_b = socketio.test_client(app, namespace="/laberinto", auth={"token": "token-valido"})
+    # descarta el "estado" inicial que cada uno recibe al conectar
+    cliente_a.get_received(namespace="/laberinto")
+    cliente_b.get_received(namespace="/laberinto")
+
+    cliente_a.emit("mover", {"direccion": "abajo"}, namespace="/laberinto")
+
+    recibidos_a = cliente_a.get_received(namespace="/laberinto")
+    recibidos_b = cliente_b.get_received(namespace="/laberinto")
+
+    assert any(m["name"] == "estado" for m in recibidos_a)
+    assert recibidos_b == []
+
+    cliente_a.disconnect(namespace="/laberinto")
+    cliente_b.disconnect(namespace="/laberinto")

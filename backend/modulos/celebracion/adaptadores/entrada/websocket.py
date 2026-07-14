@@ -3,7 +3,7 @@
 import base64
 import logging
 
-from flask import session
+from flask import request, session
 from flask_socketio import Namespace, disconnect
 
 from modulos.celebracion.adaptadores.salida.procesador_matrix_mediapipe import (
@@ -29,7 +29,14 @@ class CelebracionMatrixNamespace(Namespace):
             disconnect()
             return
         session["usuario_id"] = int(usuario_id)
-        self.emit("matrix_estado", {"ok": True, "mensaje": "procesador conectado"})
+        # room=request.sid (no `to`, ese kwarg no existe en Namespace.emit):
+        # sin esto se transmite a TODOS los conectados al namespace, y
+        # cualquiera veria el video procesado de cualquier otro.
+        self.emit(
+            "matrix_estado",
+            {"ok": True, "mensaje": "procesador conectado"},
+            room=request.sid,
+        )
 
     def on_matrix_frame(self, datos):
         if session.get("usuario_id") is None:
@@ -54,10 +61,10 @@ class CelebracionMatrixNamespace(Namespace):
 
             resultado = _procesar_frame.ejecutar(frame)
             # Flask-SocketIO transmite bytes como binario real.
-            self.emit("matrix_resultado", resultado)
+            self.emit("matrix_resultado", resultado, room=request.sid)
         except Exception as error:
             logger.exception("Error procesando frame Matrix")
-            self.emit("matrix_error", {"error": str(error)})
+            self.emit("matrix_error", {"error": str(error)}, room=request.sid)
 
 
 def registrar_namespace_celebracion_matrix(socketio, verificador_de_sesion) -> None:

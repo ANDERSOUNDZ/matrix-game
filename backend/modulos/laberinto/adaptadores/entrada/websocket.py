@@ -61,7 +61,12 @@ class LaberintoNamespace(Namespace):
         # su propio laberinto e hilo de enemigo -- ver
         # adaptadores/persistencia/memoria.py.
         partida = _crear_partida_use_case.ejecutar(conexion_id=sid, usuario_id=usuario_id)
-        self.emit("estado", partida.a_dict())
+        # room=sid (no `to`, ese kwarg no existe en Namespace.emit): sin esto
+        # el "estado" se transmite a TODOS los conectados al namespace, y el
+        # jugador de otra persona conectada al mismo tiempo ve su pantalla
+        # sobreescrita con el estado de este. Este fue el bug real detras de
+        # "mi personaje se mueve solo, porque mi compañero esta jugando".
+        self.emit("estado", partida.a_dict(), room=sid)
 
         _conexiones_activas[sid] = True
         self._socketio.start_background_task(self._tick_enemigo, sid)
@@ -99,13 +104,13 @@ class LaberintoNamespace(Namespace):
         partida = _mover_jugador_use_case.ejecutar(
             conexion_id=request.sid, usuario_id=usuario_id, direccion=direccion
         )
-        self.emit("estado", partida.a_dict())
+        self.emit("estado", partida.a_dict(), room=request.sid)
 
         if partida.ganada:
-            self.emit("ganaste", {"tiempo_segundos": partida.tiempo_segundos})
+            self.emit("ganaste", {"tiempo_segundos": partida.tiempo_segundos}, room=request.sid)
             _conexiones_activas[request.sid] = False
         elif partida.perdida:
-            self.emit("perdiste", {})
+            self.emit("perdiste", {}, room=request.sid)
             _conexiones_activas[request.sid] = False
 
     def on_disconnect(self):
