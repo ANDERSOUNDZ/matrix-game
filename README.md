@@ -1,106 +1,158 @@
 # Matrix Game
 
-Juego de laberinto estilo Matrix, con autenticación y una pantalla final de
-"ganador" con filtro de foto para compartir.
+Juego de laberinto 3D estilo Matrix, con autenticación y pantalla final con filtro de foto estilo Matrix para compartir.
 
-**El flujo completo ya está conectado y funcionando de punta a punta**: registro/
-login → dashboard → jugar el laberinto → ganar → selfie con filtro → compartir →
-volver al dashboard → cerrar sesión. Es una implementación de referencia real y
-mínima en los 3 módulos (ver ADR `docs/decisiones/0002-...md`) — cada dev tiene
-ahora un ejemplo concreto y funcionando sobre el cual seguir construyendo, no un
-cascarón vacío.
-
-## Arquitectura (resumen — ver `porgramas/GUIA-ARQUITECTURA-Y-CALIDAD.md` para el detalle completo)
-
-Un único backend desplegable, organizado **por feature**, no por capa técnica. Cada
-feature es un módulo independiente con su propio dominio/puertos/aplicación/
-adaptadores (arquitectura hexagonal, Nivel 1 de la guía):
-
-```
-backend/
-├── compartido/        # bus de eventos + puertos que cruzan módulos + composition root
-│                       # TOCAR SOLO CON ACUERDO DE LOS 3 DEVS
-└── modulos/
-    ├── autenticacion/  # Dev 1 — registro, login, JWT
-    ├── laberinto/      # Dev 2 — el juego (un jugador por partida, por ahora)
-    └── celebracion/    # Dev 3 — guardar la foto con el filtro
-```
-
-Los módulos **nunca se importan el dominio entre sí**. Se comunican a través del bus
-de eventos compartido (`compartido/event_bus.py`) o de puertos explícitos
-(`compartido/puertos.py`). Ejemplo: cuando alguien gana el laberinto, el módulo
-`laberinto` publica el evento `PartidaGanada`; el módulo `celebracion` está
-suscripto a ese evento y reacciona — sin que `laberinto` sepa que `celebracion`
-existe. El puerto compartido `VerificadorDeSesion` (implementado por
-`autenticacion`, consumido por `laberinto` y `celebracion`) funciona igual: se
-inyecta desde `compartido/app.py`, sin que esos módulos importen `autenticacion`.
-
-## Independencia de la base de datos
-
-Los 3 módulos comparten una sola instancia de Postgres, pero cada uno tiene:
-
-- **Su propio esquema** (`autenticacion`, `laberinto`, `celebracion`).
-- **Su propia carpeta de migraciones de Alembic** (`modulos/<nombre>/migraciones/`),
-  con su propia tabla de versionado. Nadie edita la carpeta de migraciones de otro
-  módulo, así que nunca hay conflictos de fusión por migraciones.
-
-Un único script corre las migraciones de los tres, en orden:
-
-```bash
-docker compose exec backend python scripts/migrar_todo.py
-```
+---
 
 ## ¿Qué necesitas instalar?
 
 **Solo una cosa:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
-No necesitas Python, Node.js, PostgreSQL, ni descargar nada a mano.
+No necesitas Python, Node.js, PostgreSQL, ni descargar nada a mano. Todo se ejecuta dentro de Docker.
 
-## Cómo levantar todo (2 comandos)
+---
+
+## Instalación paso a paso
+
+### Paso 1: Instalar Docker Desktop
+
+1. Ve a https://www.docker.com/products/docker-desktop/
+2. Descarga e instala Docker Desktop
+3. Ábrelo y espera a que aparezca "Engine running"
+
+### Paso 2: Descargar el proyecto
+
+```bash
+# Opción A: Con Git (recomendado)
+git clone -b completo https://github.com/ANDERSOUNDZ/matrix-game.git
+cd matrix-game
+
+# Opción B: Sin Git (ZIP)
+# 1. Ve a https://github.com/ANDERSOUNDZ/matrix-game/tree/completo
+# 2. Botón "Code" → "Download ZIP"
+# 3. Extrae y abre la carpeta
+```
+
+### Paso 3: Crear archivo .env
 
 ```bash
 cp .env.example .env
+```
+
+Los valores por defecto ya funcionan, no necesitas cambiarlos.
+
+### Paso 4: Levantar los servicios
+
+```bash
 docker compose up -d
+```
+
+Esto inicia 3 contenedores:
+- **PostgreSQL** — base de datos
+- **Backend** — servidor Flask + Socket.IO
+- **Frontend** — Nginx con la página web
+
+### Paso 5: Ejecutar migraciones de la base de datos
+
+```bash
 docker compose exec backend python scripts/migrar_todo.py
 ```
 
-> **Nota:** Las librerías frontend (Three.js, Socket.IO, MediaPipe, ~22 MB) y
-> las librerías Python (Flask, SQLAlchemy, mediapipe, ~200 MB) ya vienen
-> incluidas en el repositorio. Docker solo necesita internet la primera vez
-> para descargar las imágenes base (Python, PostgreSQL, Nginx).
+Esto crea las tablas necesarias para los 3 módulos (autenticación, laberinto, celebración).
 
-- **Frontend:** http://localhost:8080
-- **Backend:** http://localhost:5000
-- **Postgres:** localhost:5432
+### Paso 6: Abrir la aplicación
 
-### Para usuarios sin internet
+| Servicio | URL |
+|----------|-----|
+| **Frontend** (app principal) | http://localhost:8090 |
+| **Backend** (API) | http://localhost:5000 |
 
-Si la PC destino no tiene internet, primero en tu PC (con internet) guardá las imágenes:
+### Paso 7: Primer uso
+
+1. Abre http://localhost:8090
+2. Haz clic en **"Crear cuenta"**
+3. Regístrate con nombre, email y contraseña
+4. En el dashboard, haz clic en **"Jugar"**
+5. Controla el laberinto con las **flechas del teclado** hasta la celda dorada
+6. Al ganar: selfie con filtro Matrix, comparte o descarga la foto
+7. Vuelve al dashboard o cierra sesión
+
+---
+
+## ¿Qué hace cada servicio?
+
+| Servicio | Puerto | Tecnología | Para qué sirve |
+|----------|--------|-----------|---------------|
+| **frontend** | http://localhost:8090 | Nginx + HTML/JS | La página web con el juego |
+| **backend** | http://localhost:5000 | Flask + Socket.IO | API, autenticación, partidas, fotos |
+| **postgres** | 5432 | PostgreSQL 16 | Guarda usuarios, partidas, fotos |
+
+---
+
+## Comandos útiles
 
 ```bash
-docker pull python:3.12-slim postgres:16-alpine nginx:alpine
-docker save python:3.12-slim postgres:16-alpine nginx:alpine -o docker-images.tar
+# Verificar que todo está corriendo
+docker compose ps
+
+# Ver logs del backend
+docker compose logs -f backend
+
+# Ver logs del frontend
+docker compose logs -f frontend
+
+# Detener servicios (sin borrar datos)
+docker compose down
+
+# Detener y borrar BD
+docker compose down -v
+
+# Reconstruir después de cambios
+docker compose up --build -d
+
+# Ejecutar tests
+docker compose exec backend pytest -v
 ```
 
-Llevá `docker-images.tar` en un USB. En la PC destino:
+---
 
-```bash
-docker load -i docker-images.tar
-docker compose up -d
-docker compose exec backend python scripts/migrar_todo.py
+## Solución de problemas
+
+| Problema | Causa | Solución |
+|----------|-------|----------|
+| Puerto 8090 ocupado | Otro programa lo usa | Cambia `FRONTEND_PORT` en `.env` (ej: `FRONTEND_PORT=8091`) |
+| Puerto 5432 ocupado | Otro PostgreSQL local | Detén tu PostgreSQL antes de iniciar Docker |
+| "No puedo crear cuenta" | Faltan migraciones | Ejecuta `docker compose exec backend python scripts/migrar_todo.py` |
+| El juego no carga | Vendor files no encontrados | Reconstruye: `docker compose build frontend` |
+| El laberinto no responde | WebSocket no conecta | Revisa logs: `docker compose logs -f backend` |
+
+---
+
+## Lo que ya viene incluido en el repositorio
+
+| Componente | Tamaño | ¿Necesita internet? |
+|-----------|--------|-------------------|
+| Código fuente (Python, HTML, JS) | ~15 MB | ❌ No |
+| Librerías frontend (Three.js, Socket.IO, MediaPipe, modelo mano) | ~22 MB | ❌ No |
+| Librerías Python (Flask, SQLAlchemy, mediapipe, opencv, etc.) | ~200 MB | ❌ No |
+| Imágenes Docker base (Python, PostgreSQL, Nginx) | ~300 MB | 🌐 Sí, solo la primera vez |
+
+---
+
+## Arquitectura
+
+El backend está organizado **por feature** (arquitectura hexagonal):
+
+```
+backend/
+├── compartido/        # Bus de eventos + puertos + composition root
+└── modulos/
+    ├── autenticacion/  # Registro, login, JWT
+    ├── laberinto/      # El juego (laberinto 3D)
+    └── celebracion/    # Filtro Matrix para fotos
 ```
 
-## Probarlo en el navegador
-
-1. Abrí `http://localhost:8090` — redirige automáticamente al login.
-2. Creá una cuenta (botón "Crear cuenta").
-3. En el dashboard, tocá "Jugar".
-4. Resolvé el laberinto con las flechas del teclado hasta llegar a la celda dorada.
-5. Al ganar, pasás automáticamente a la pantalla de celebración: dale permiso de
-   cámara, sacate la selfie (se aplica el filtro verde estilo Matrix), y probá
-   "Compartir con amigos" (usa la Web Share API si tu navegador la soporta; si no,
-   descarga la imagen).
-6. Volvé al dashboard y cerrá sesión.
+Los módulos **nunca se importan entre sí**. Se comunican a través del bus de eventos compartido.
 
 ## Tests
 
