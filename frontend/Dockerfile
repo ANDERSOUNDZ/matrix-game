@@ -1,8 +1,9 @@
 FROM nginx:alpine
 
-# Cascaron: sirve archivos estaticos tal cual. El dia que se sume un
-# framework de frontend con build step (React/Vue/etc.), este Dockerfile
-# pasa a tener una etapa de build antes de copiar a nginx.
+# Sirve archivos estaticos + vendor (descargados en el repo)
 COPY . /usr/share/nginx/html
+
+# vendor/ se copia con el resto del frontend
+RUN chmod -R a+r /usr/share/nginx/html
 
 EXPOSE 80

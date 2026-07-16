@@ -50,18 +50,45 @@ Un único script corre las migraciones de los tres, en orden:
 docker compose exec backend python scripts/migrar_todo.py
 ```
 
-## Cómo levantar todo
+## ¿Qué necesitas instalar?
+
+**Solo una cosa:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+No necesitas Python, Node.js, PostgreSQL, ni descargar nada a mano.
+
+## Cómo levantar todo (2 comandos)
 
 ```bash
-cp .env.example .env        # y ajustar valores si hace falta
-docker compose up --build -d
+cp .env.example .env
+docker compose up -d
 docker compose exec backend python scripts/migrar_todo.py
 ```
 
-- Backend: http://localhost:5000
-- Frontend: http://localhost:8090 *(si el 8090 ya está ocupado en tu máquina, cambiá
-  `FRONTEND_PORT` en `.env`)*
-- Postgres: localhost:5432
+> **Nota:** Las librerías frontend (Three.js, Socket.IO, MediaPipe, ~22 MB) y
+> las librerías Python (Flask, SQLAlchemy, mediapipe, ~200 MB) ya vienen
+> incluidas en el repositorio. Docker solo necesita internet la primera vez
+> para descargar las imágenes base (Python, PostgreSQL, Nginx).
+
+- **Frontend:** http://localhost:8080
+- **Backend:** http://localhost:5000
+- **Postgres:** localhost:5432
+
+### Para usuarios sin internet
+
+Si la PC destino no tiene internet, primero en tu PC (con internet) guardá las imágenes:
+
+```bash
+docker pull python:3.12-slim postgres:16-alpine nginx:alpine
+docker save python:3.12-slim postgres:16-alpine nginx:alpine -o docker-images.tar
+```
+
+Llevá `docker-images.tar` en un USB. En la PC destino:
+
+```bash
+docker load -i docker-images.tar
+docker compose up -d
+docker compose exec backend python scripts/migrar_todo.py
+```
 
 ## Probarlo en el navegador
 

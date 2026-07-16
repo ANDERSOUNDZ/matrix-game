@@ -15,15 +15,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libegl1 \
     && rm -rf /var/lib/apt/lists/*
 
+# Instalar librerías Python desde wheels locales (sin internet)
+COPY py_deps/ /app/py_deps/
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --no-index --find-links=/app/py_deps -r requirements.txt
 
-# mediapipe arrastra una variante de opencv que choca con
-# opencv-python-headless (error de import/GL en runtime sin display). Se
-# fuerza a que quede solo la headless, en la version que se probo estable.
+# mediapipe arrastra opencv-contrib-python que choca con
+# opencv-python-headless en runtime (error de GL sin display).
+# Se fuerza a que quede solo la headless, desde el mismo directorio.
 RUN pip uninstall -y opencv-python opencv-contrib-python \
     opencv-contrib-python-headless opencv-python-headless || true \
-    && pip install --no-cache-dir opencv-python-headless==4.12.0.88
+    && pip install --no-cache-dir --no-index --find-links=/app/py_deps opencv-python-headless==4.12.0.88 \
+    && rm -rf /app/py_deps
 
 COPY . .
 

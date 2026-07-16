@@ -160,8 +160,8 @@
 
   <script src="../config.js"></script>
   <script src="../comun.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="/vendor/three/three.min.js"></script>
+  <script src="/vendor/socket.io/socket.io.min.js"></script>
   <script>
     const sesion = obtenerSesion();
     if (!sesion) {
@@ -239,9 +239,9 @@
     // corre en el navegador) que ya probamos en pixiodoc_tracker, pero con
     // una capa de deteccion mas simple (sin calibracion ni histeresis por
     // dedo, porque aca no miramos dedos individuales).
-    const TASKS_VISION_URL_MANO = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs';
-    const TASKS_VISION_WASM_MANO = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
-    const HAND_MODEL_URL_MANO = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+    const TASKS_VISION_URL_MANO = '/vendor/mediapipe/vision_bundle.mjs';
+    const TASKS_VISION_WASM_MANO = '/vendor/mediapipe/wasm';
+    const HAND_MODEL_URL_MANO = '/vendor/mediapipe/hand_landmarker.task';
     const ZONA_MUERTA = 0.16; // radio (0..1) de la zona central sin accion -- hay que mover la mano con intencion clara
     const MARGEN_HISTERESIS = 0.05; // hace falta un cambio claro para salir de la zona/eje actual, evita que titile en la diagonal
     const SUAVIZADO_POSICION = 0.35; // 0..1: mas alto = responde mas rapido, mas bajo = mas estable

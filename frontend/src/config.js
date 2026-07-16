@@ -6,5 +6,6 @@
 // en dominios completamente distintos (no "mismo host, otro puerto"), así
 // que hay que completar esto con la URL pública del servicio backend una
 // vez creado, por ejemplo:
-//   window.MATRIX_GAME_BACKEND_URL = "https://matrix-game-backend-production.up.railway.app";
-window.MATRIX_GAME_BACKEND_URL = "https://matrix-game-production.up.railway.app";
+// En produccion (Railway), descomentar y poner la URL real:
+// window.MATRIX_GAME_BACKEND_URL = "https://matrix-game-production.up.railway.app";
+// En local se detecta automaticamente (mismo host, puerto 5000)
