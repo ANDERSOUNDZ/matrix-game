@@ -1,7 +1,8 @@
 FROM nginx:alpine
 
 # MIME types para vendor (vision_bundle.mjs, vision_wasm_internal.wasm)
-COPY nginx.conf /etc/nginx/conf.d/mime-mediapipe.conf
+RUN sed -i '/application\/javascript/s/;/ mjs;/' /etc/nginx/mime.types \
+    && sed -i '/application\/wasm/s/;/ wasm;/' /etc/nginx/mime.types || true
 
 # Sirve archivos estaticos + vendor (descargados en el repo)
 COPY . /usr/share/nginx/html
